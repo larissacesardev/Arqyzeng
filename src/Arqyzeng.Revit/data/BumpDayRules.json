@@ -1,0 +1,18 @@
+﻿{
+  "Id": "bump-day",
+  "Name": "Bump Dia",
+  "Version": "1.1",
+  "Instructions": [
+    "Analise na ordem: geometria, camera, materiais, iluminacao, sombras, reflexos, contexto e pos-producao.",
+    "Priorize luz natural fisicamente plausivel e preserve composicao e materiais especificados.",
+    "Melhore rugosidade, textura, reflexos, sombras de contato, profundidade e exposicao.",
+    "Evite inventar elementos arquitetonicos. Alteracoes de contexto devem respeitar a liberdade do modo selecionado.",
+    "Preserve detalhes em materiais claros e sombras; a luz natural deve revelar microtextura e volume, sem apagar superfícies brancas.",
+    "Use a biblioteca de materialidade compartilhada apenas nas categorias identificadas; o guia diurno fornecido e principalmente de materiais, nao uma especificacao numerica de luz solar."
+  ],
+  "Sources": [
+    "Arqyzeng_BIM_Documentacao_Projeto_v1.0.pdf",
+    "BUMP DIAA.docx",
+    "BUMP RENDER.docx"
+  ]
+}

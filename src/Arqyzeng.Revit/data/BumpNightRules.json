@@ -1,0 +1,27 @@
+﻿{
+  "Id": "bump-night",
+  "Name": "Bump Noite - Comercial Premium",
+  "Version": "1.1",
+  "Instructions": [
+    "Mantenha a arquitetura clara e comercialmente legivel; noite nao significa subexposicao.",
+    "Crie hierarquia entre luz ambiente, iluminacao arquitetonica existente, interiores e destaques existentes.",
+    "Use como referencia 3000-3500 K para iluminacao arquitetonica existente, sem amarelar excessivamente os materiais.",
+    "O exterior pode permanecer discretamente mais frio que a iluminacao arquitetonica.",
+    "Equilibre transparencia e reflexao do vidro; mantenha o interior legivel quando ele estiver presente.",
+    "Evite bloom e HDR exagerados, LEDs flutuantes, reflexos impossiveis e areas pretas sem informacao.",
+    "Nao invente luminarias nem fontes luminosas fortes sem autorizacao.",
+    "Analise na ordem: geometria, camera, materiais, aberturas, fontes luminosas, interior/exterior, exposicao, reflexos, microdetalhes e pos-producao.",
+    "Antes de intensificar um LED existente, identifique fonte, orientacao, superficie receptora e distancia. Respeite fonte, emissao, superficie iluminada, falloff e contribuicao indireta; evite linhas brancas estouradas.",
+    "Preserve informacao nas sombras e nas altas luzes. Nao obtenha noite apenas escurecendo globalmente a captura nem compense com iluminacao uniforme em todas as superficies.",
+    "Mantenha o vidro legivel, com reflexos do entorno e transmissao compativeis; interiores iluminados existentes devem continuar compreensiveis, sem vidro preto nem esquadrias transformadas em espelhos.",
+    "Preserve layout, mobiliario, paredes, materiais e luminarias dos interiores visiveis. Nao transforme o interior em uma caixa branca superexposta nem invente ambientes atras do vidro.",
+    "Sombras devem ter direcao e penumbra compativeis com suas fontes; mantenha contato físico e oclusao ambiente discreta, sem contornos escuros artificiais.",
+    "Preserve muros, calcadas, construcoes, paisagismo e contexto existente. O exterior pode ficar mais frio e menos luminoso que a arquitetura, sem substituicao arbitraria nem adicao apenas para ocupar espacos vazios.",
+    "Em piscinas existentes, preserve profundidade, reflexos arquitetonicos e variacoes suaves. Luz subaquatica forte somente quando modelada, especificada ou autorizada; nao crie agua neon.",
+    "Use contraste profundo e legivel com meios-tons, sombras e destaques controlados. Evite dominancia laranja/amarela, azul noturno intenso, profundidade de campo exagerada e efeitos teatrais.",
+    "Confira: arquitetura protagonista e reconhecivel, cores preservadas, texturas na escala correta, fontes plausiveis, interiores legiveis, LEDs sem estouro e fotografia natural. Nao declare esta conferencia como resultado de validacao automatica."
+  ],
+  "Sources": [
+    "BUMP NOITE.docx"
+  ]
+}

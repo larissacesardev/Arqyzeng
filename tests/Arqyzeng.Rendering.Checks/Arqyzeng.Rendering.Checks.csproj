@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Arqyzeng.Revit\PanoramaViewerMath.cs" Link="PanoramaViewerMath.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\CubeProjection.cs" Link="CubeProjection.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\RenderSettings.cs" Link="RenderSettings.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\PromptBuilder.cs" Link="PromptBuilder.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\BimContextFormatter.cs" Link="BimContextFormatter.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\OpenAiImageProvider.cs" Link="OpenAiImageProvider.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\ImageProviderChecks.cs" Link="ImageProviderChecks.cs" />
+    <Content Include="..\..\src\Arqyzeng.Revit\data\*.json" Link="data\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

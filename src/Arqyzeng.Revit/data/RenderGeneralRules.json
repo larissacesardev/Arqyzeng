@@ -1,0 +1,27 @@
+﻿{
+  "Id": "render-general",
+  "Name": "Render e materialidade dos guias tecnicos",
+  "Version": "1.1",
+  "Sources": [
+    "BUMP RENDER.docx",
+    "BUMP DIAA.docx",
+    "BUMP NOITE.docx"
+  ],
+  "Instructions": [
+    "As restricoes de geometria, camera, identidade material e liberdade do modo prevalecem sobre qualquer sugestao estetica destes guias.",
+    "Preserve volumes, alturas, proporcoes, cobertura, estrutura, esquadrias, escadas, guarda-corpos, mobiliario fixo, piscinas, muros e paginacoes relevantes.",
+    "Melhore a aparencia fisica, nao a forma: preserve silhuetas, bordas, espessuras geometricas e encontros. Suavizacao de quinas deve ser apenas leitura luminosa, sem remodelar o projeto.",
+    "Preserve o ponto de observacao, direcao, perspectiva e proporcao entre primeiro plano e fundo. Evite fisheye, deformacao nas bordas e verticalizacao artificial incompatível com a captura.",
+    "Interprete materiais por geometria, posicao, funcao, transparencia, tonalidade e acabamento; cor isolada nao confirma a categoria.",
+    "Um painel bronze translucido pode ser reflecta, nao necessariamente madeira; uma superficie azul horizontal pode ser agua, mas essas pistas sao hipoteses, nunca confirmacao automatica.",
+    "Aplique as regras de uma categoria apenas quando ela estiver identificada com confianca. Em caso de incerteza, preserve as caracteristicas observadas, indique a incerteza e nao invente especie, marca ou acabamento.",
+    "Preserve tonalidade, escala e direcao das texturas, juntas, paginação e acabamento existentes. Microvariacoes devem ser discretas e proporcionais a distancia da camera, sem sujeira ou envelhecimento exagerado.",
+    "Reflexao deve acompanhar o acabamento: fosco dispersa, acetinado tem resposta intermediaria e polido pode refletir mais. Nao transforme todas as superficies em espelhos.",
+    "Materiais transparentes e translucidos sao superficies fisicas, nao ausencia de geometria. Preserve sua transmissao, reflexao, refracao e leitura de espessura quando visivel, sem aumentar a espessura do modelo.",
+    "Nas superficies brancas, preserve a identidade branca e o balanco cromatico do projeto, com textura, sombras de contato e separacao de planos. Evite highlights estourados, sem recolorir arbitrariamente o material. Esta regra trata de superficies, nao obriga a trocar o fundo branco da captura.",
+    "A iluminacao deve revelar textura, relevo aparente, transparência, contato e volume. Sombras devem corresponder as fontes, com penumbra natural e oclusao ambiente discreta.",
+    "Pos-producao deve finalizar exposicao, balanco de branco, contraste, nitidez e cor sem reconstruir a cena. Evite HDR agressivo, clarity excessivo, bloom forte, halos, saturacao artificial e pretos esmagados.",
+    "Os guias descrevem comportamento visual qualitativo. Nao atribua valores universais de IOR, roughness, metallic, bump, displacement, transmissao ou escala numerica de textura como se fossem especificados pelos guias.",
+    "Antes de entregar, confira identidade dos materiais, textura, reflexos, vidro, juntas, brancos, contato, escala e preservacao da arquitetura. Estas sao instrucoes de revisao, nao uma analise automatica ja executada."
+  ]
+}

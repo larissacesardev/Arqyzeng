@@ -1,0 +1,150 @@
+﻿{
+  "Id": "material-library",
+  "Version": "1.1",
+  "Sources": [
+    "BUMP DIAA.docx",
+    "BUMP RENDER.docx"
+  ],
+  "Categories": [
+    {
+      "Id": "wood",
+      "Name": "Madeira",
+      "Instructions": [
+        "Preserve especie e tonalidade quando identificadas, veios e direcao das fibras; valorize microvariacao natural, acabamento fosco ou acetinado correspondente e reflexao difusa. Nao infira madeira apenas de uma cor marrom."
+      ]
+    },
+    {
+      "Id": "metal",
+      "Name": "Metais",
+      "Instructions": [
+        "Diferencie escovado, polido, pintado, fosco e oxidado conforme a especificacao; use reflexos e microarranhoes discretos correspondentes. Nao converta metal fosco em cromado nem acrescente oxidacao a uma peca nova."
+      ]
+    },
+    {
+      "Id": "clear-glass",
+      "Name": "Vidro transparente",
+      "Instructions": [
+        "Mantenha transparencia com presença fisica, reflexao suave, refracao discreta e leitura de borda existente. Nao represente vidro como buraco nem apague esquadrias."
+      ]
+    },
+    {
+      "Id": "frosted-glass",
+      "Name": "Vidro fosco ou jateado",
+      "Instructions": [
+        "Mantenha transmissao difusa e ocultamento parcial do fundo, reflexao difusa e presença fisica; nao converta em vidro cristalino ou superficie opaca sem passagem de luz."
+      ]
+    },
+    {
+      "Id": "reflecta-glass",
+      "Name": "Vidro reflecta",
+      "Instructions": [
+        "Somente quando identificado: preserve tipo e tonalidade. Bronze tem leitura mais quente, branco mais fria e fumê cinza-escura, com reflexao e ocultamento parcial compativeis; todos continuam sendo vidro. Nao transforme fumê em transparente."
+      ]
+    },
+    {
+      "Id": "acrylic",
+      "Name": "Acrilico transparente",
+      "Instructions": [
+        "Preserve transparencia, brilho e presença fisica; mantenha resposta refrativa discreta, sem tratar acrilico como vazio."
+      ]
+    },
+    {
+      "Id": "stone",
+      "Name": "Pedras naturais",
+      "Instructions": [
+        "Preserve padrao e acabamento identificados: marmore com veios, granito e quartzito com variacao mineral, travertino com porosidade quando aplicavel. Textura e reflexao devem ser compativeis, sem mudar a pedra para parecer mais sofisticada."
+      ]
+    },
+    {
+      "Id": "engineered-stone",
+      "Name": "Superficies minerais compostas",
+      "Instructions": [
+        "Quando identificada como Silestone ou equivalente, mantenha a uniformidade relativa e reflexao compatível com o acabamento. Nao invente veios de marmore ou porosidade de travertino."
+      ]
+    },
+    {
+      "Id": "concrete",
+      "Name": "Concreto e pisos cimenticios",
+      "Instructions": [
+        "Mantenha carater mineral e acabamento correspondente, geralmente fosco, com microtextura e variacoes discretas; nao invente marcas construtivas, sujeira, deterioracao ou brilho plastico."
+      ]
+    },
+    {
+      "Id": "ceramic",
+      "Name": "Ceramicas e porcelanatos",
+      "Instructions": [
+        "Preserve dimensoes aparentes, juntas, alinhamento e paginacao existentes. Introduza somente variacao discreta de textura, tonalidade e brilho compativel com o revestimento; diferencie fosco e polido sem fazer todo piso virar espelho."
+      ]
+    },
+    {
+      "Id": "textile",
+      "Name": "Tecidos",
+      "Instructions": [
+        "Algodao e linho identificados devem manter trama; veludo identificado pode ter reflexao direcional. Preserve cor e acabamento, com fibras e relevo aparente discretos, sem brilho plastico."
+      ]
+    },
+    {
+      "Id": "leather",
+      "Name": "Couro",
+      "Instructions": [
+        "Preserve cor, tipo e acabamento; use leve brilho e irregularidade discreta. Nao envelheca automaticamente uma peca nova."
+      ]
+    },
+    {
+      "Id": "rug",
+      "Name": "Tapetes",
+      "Instructions": [
+        "Valorize textura, fibras, relevo aparente e variacao cromatica sutil compativeis com o material identificado, sem alterar contorno ou espessura geometrica."
+      ]
+    },
+    {
+      "Id": "water",
+      "Name": "Agua e piscinas",
+      "Instructions": [
+        "Somente onde agua estiver identificada: combine reflexao do ambiente, transparencia, refracao, ondulacao suave e profundidade. Preserve bordas e volume da piscina; nao transforme um plano azul incerto automaticamente em agua nem acrescente piscina."
+      ]
+    },
+    {
+      "Id": "vegetation",
+      "Name": "Vegetacao existente",
+      "Instructions": [
+        "Valorize translucidez leve das folhas, sombras plausiveis e variacoes naturais discretas. Na grama existente, varie tonalidade e densidade aparentes sem alterar area ou desenho do paisagismo."
+      ]
+    },
+    {
+      "Id": "soil",
+      "Name": "Terra",
+      "Instructions": [
+        "Quando identificada, mantenha rugosidade e microvariacao cromatica naturais, sem substituir pavimentacao ou criar novo terreno."
+      ]
+    },
+    {
+      "Id": "wall",
+      "Name": "Paredes pintadas e forros",
+      "Instructions": [
+        "Somente em superficies identificadas como pintura ou gesso: mantenha mate ou acetinado conforme acabamento, sombras de contato e leitura de planos, sem branco estourado. Paredes externas seguem o material especificado, sem revestimento arbitrario."
+      ]
+    },
+    {
+      "Id": "trim",
+      "Name": "Rodapes e guarnicoes",
+      "Instructions": [
+        "Preserve material e acabamento existentes, como MDF pintado ou madeira envernizada; valorize quinas e contato com superficies, sem trocar identidade ou dimensoes."
+      ]
+    },
+    {
+      "Id": "plastic",
+      "Name": "Plasticos",
+      "Instructions": [
+        "Diferencie fosco e brilhante conforme acabamento; microtextura ou relevo aparente devem ser discretos e coerentes, sem alterar a forma."
+      ]
+    },
+    {
+      "Id": "paper",
+      "Name": "Papeis e impressos",
+      "Instructions": [
+        "Preserve conteudo impresso e formato; valorize textura, sombreamento e espessura ja representada, com brilho conforme o tipo. Nao invente letras, imagens ou nova espessura geometrica."
+      ]
+    }
+  ]
+}
