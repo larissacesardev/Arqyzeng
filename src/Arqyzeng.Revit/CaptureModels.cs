@@ -8,4 +8,5 @@ internal sealed record CaptureSettings(int Width, int Height,
     double Vertical = 0.5, double Zoom = 1);
 internal sealed record CaptureResult(string OriginalPath, string ViewName, BimSceneSnapshot Bim);
 internal enum PrintAction { Capture, Guide, Prepare, Return, Panorama }
-internal sealed record PrintRequest(PrintAction Action, CaptureSettings? Settings = null);
+internal sealed record PrintRequest(PrintAction Action, CaptureSettings? Settings = null, int PanoramaFacePixels = 1024,
+    int PanoramaSamplingMultiplier = 1);

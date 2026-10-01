@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Arqyzeng.Rendering;
 
-internal sealed record ImageEditRequest(byte[] Png, string Prompt, int Width, int Height, string Quality);
+internal sealed record ImageEditRequest(byte[] Png, string Prompt, int Width, int Height, string Quality, byte[]? MaskPng = null);
 internal sealed record ImageEditResult(byte[] Png, int Width, int Height);
 
 internal interface IImageProvider
@@ -56,6 +56,12 @@ internal sealed class OpenAiImageProvider : IImageProvider
         var referenceSize = ReadPngSize(input.Png);
         if (referenceSize.Width != input.Width || referenceSize.Height != input.Height)
             throw new ArgumentException("A referencia enviada deve ter as mesmas dimensoes solicitadas para o render.");
+        if (input.MaskPng is not null)
+        {
+            if (input.MaskPng.Length >= 50 * 1024 * 1024 || ReadPngSize(input.MaskPng) != referenceSize ||
+                input.MaskPng[25] != 6)
+                throw new ArgumentException("A mascara deve ser PNG RGBA, menor que 50 MB e ter as dimensoes da referencia.");
+        }
         cancellation.ThrowIfCancellationRequested();
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent(Model), "model");
@@ -67,6 +73,12 @@ internal sealed class OpenAiImageProvider : IImageProvider
         var image = new ByteArrayContent(input.Png);
         image.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(image, "image[]", "captura.png");
+        if (input.MaskPng is not null)
+        {
+            var mask = new ByteArrayContent(input.MaskPng);
+            mask.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            form.Add(mask, "mask", "mascara.png");
+        }
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/images/edits") { Content = form };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key.Trim());
         // Uma unica tentativa: repetir automaticamente pode duplicar cobranca.

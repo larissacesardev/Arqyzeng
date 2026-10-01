@@ -4,10 +4,11 @@ using System.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Arqyzeng.Panorama;
+using Arqyzeng.Core;
 
 namespace Arqyzeng.Revit;
 
-internal sealed record PanoramaProjectionResult(string Path, PanoramaResult Capture);
+internal sealed record PanoramaProjectionResult(string Path, PanoramaResult Capture, int Width, int Height);
 internal static class PanoramaProjectionService
 {
     private static readonly string[] Names = ["front", "right", "back", "left", "up", "down"];
@@ -17,13 +18,13 @@ internal static class PanoramaProjectionService
     private sealed record FaceData(string Name, string File, int Width, int Height, double[] Eye,
         double[] Forward, double[] Up, double HorizontalFov, double VerticalFov,
         double RightOffsetRatio, double UpOffsetRatio, bool Validated,
-        int RawWidth, int RawHeight, bool RasterNormalized);
+        int RawWidth, int RawHeight, bool RasterNormalized, BimSceneSnapshot? Bim = null);
 
     internal static PanoramaProjectionResult Build(string metadataPath, CancellationToken cancellation)
     {
         string folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(metadataPath))!;
         using var input = File.OpenRead(metadataPath);
-        if (input.Length > 1024 * 1024) throw new InvalidOperationException("Metadados maiores que o limite permitido.");
+        if (input.Length > 16 * 1024 * 1024) throw new InvalidOperationException("Metadados maiores que o limite permitido.");
         var data = JsonSerializer.Deserialize<Metadata>(input, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("Metadados vazios.");
         if (data.SchemaVersion != 2 || !data.Validated || data.Faces is not { Length: 6 } || !VectorValid(data.Eye))
@@ -36,12 +37,14 @@ internal static class PanoramaProjectionService
         double[] fwd = front.Forward, up = front.Up, right = Cross(fwd, up);
         double[][] forwards = [fwd, right, Negate(fwd), Negate(right), up, Negate(up)];
         double[][] ups = [up, up, up, up, Negate(fwd), fwd];
+        int facePixels = front.Width;
+        var outputSize = CubeProjection.OutputSize(facePixels);
         var rasters = new List<Raster>(); var faces = new List<PanoramaFace>();
         for (int i = 0; i < Names.Length; i++)
         {
             cancellation.ThrowIfCancellationRequested();
             var face = data.Faces.SingleOrDefault(v => v.Name == Names[i]) ?? throw new InvalidOperationException("Face " + Names[i] + " ausente.");
-            if (!face.Validated || face.Width != 1024 || face.Height != 1024 || !VectorValid(face.Eye) ||
+            if (!face.Validated || face.Width != facePixels || face.Height != facePixels || !VectorValid(face.Eye) ||
                 Distance(face.Eye, data.Eye) > 1e-7 || !Unit(face.Forward) || !Unit(face.Up) ||
                 Dot(face.Forward, forwards[i]) < 1 - 1e-6 || Dot(face.Up, ups[i]) < 1 - 1e-6 ||
                 !Near(face.HorizontalFov, 90, .05) || !Near(face.VerticalFov, 90, .05) ||
@@ -51,16 +54,16 @@ internal static class PanoramaProjectionService
             if (face.File != Names[i] + ".png") throw new InvalidOperationException("Nome de arquivo da face invalido.");
             string path = System.IO.Path.Combine(folder, face.File);
             var image = ImagePipeline.Load(path);
-            if (image.PixelWidth != 1024 || image.PixelHeight != 1024)
-                throw new InvalidOperationException("O arquivo " + face.File + " deve ter 1024 x 1024 px. Use os arquivos da pasta principal da captura.");
+            if (image.PixelWidth != facePixels || image.PixelHeight != facePixels)
+                throw new InvalidOperationException("O arquivo " + face.File + $" deve ter {facePixels} x {facePixels} px. Use os arquivos da pasta principal da captura.");
             var rgb = new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
-            byte[] pixels = new byte[1024 * 1024 * 4]; rgb.CopyPixels(pixels, 1024 * 4, 0);
-            rasters.Add(new Raster(pixels, 1024));
+            byte[] pixels = new byte[facePixels * facePixels * 4]; rgb.CopyPixels(pixels, facePixels * 4, 0);
+            rasters.Add(new Raster(pixels, facePixels));
             faces.Add(new PanoramaFace(face.Name, path, face.Width, face.Height, face.Eye, face.Forward, face.Up,
                 face.HorizontalFov, face.VerticalFov, face.RightOffsetRatio, face.UpOffsetRatio, true,
-                face.RawWidth, face.RawHeight, face.RasterNormalized));
+                face.RawWidth, face.RawHeight, face.RasterNormalized, face.Bim));
         }
-        const int width = 4096, height = 2048;
+        int width = outputSize.Width, height = outputSize.Height;
         byte[] output = new byte[width * height * 4];
         double[] sinLongitude = new double[width], cosLongitude = new double[width];
         for (int x = 0; x < width; x++)
@@ -82,7 +85,7 @@ internal static class PanoramaProjectionService
         cancellation.ThrowIfCancellationRequested();
         var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, output, width * 4);
         bitmap.Freeze();
-        string finalPath = System.IO.Path.Combine(folder, "Panorama_4096x2048_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N")[..8] + ".png");
+        string finalPath = System.IO.Path.Combine(folder, $"Panorama_{width}x{height}_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N")[..8] + ".png");
         string temporaryPath = finalPath + ".pending";
         try
         {
@@ -92,7 +95,7 @@ internal static class PanoramaProjectionService
             File.Move(temporaryPath, finalPath);
         }
         finally { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); }
-        return new PanoramaProjectionResult(finalPath, new PanoramaResult(folder, data.SourceView, faces.ToArray(), true));
+        return new PanoramaProjectionResult(finalPath, new PanoramaResult(folder, data.SourceView, faces.ToArray(), true), width, height);
     }
     private static void Sample(Raster raster, double u, double v, byte[] output, int offset)
     {

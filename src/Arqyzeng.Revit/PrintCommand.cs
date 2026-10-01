@@ -73,7 +73,8 @@ internal static class PrintHost
         }
         window.CaptureRequested += settings => QueueRequest(new PrintRequest(PrintAction.Capture, settings));
         window.GuideRequested += settings => QueueRequest(new PrintRequest(PrintAction.Guide, settings));
-        window.PanoramaRequested += () => QueueRequest(new PrintRequest(PrintAction.Panorama));
+        window.PanoramaRequested += (pixels, sampling) => QueueRequest(new PrintRequest(PrintAction.Panorama,
+            PanoramaFacePixels: pixels, PanoramaSamplingMultiplier: sampling));
         window.PrepareRequested += () => QueueRequest(new PrintRequest(PrintAction.Prepare));
         handler.GuideActionRequested = QueueRequest;
         window.Closed += (_, _) =>

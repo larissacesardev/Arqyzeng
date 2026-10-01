@@ -17,12 +17,17 @@ using System.Windows.Threading;
 
 namespace Arqyzeng.Revit;
 
-internal sealed class PrintWindow : Window
+internal sealed partial class PrintWindow : Window
 {
     internal event Action<CaptureSettings>? CaptureRequested;
     internal event Action<CaptureSettings>? GuideRequested;
     internal event Action? PrepareRequested;
-    internal event Action? PanoramaRequested;
+    internal event Action<int, int>? PanoramaRequested;
+    private readonly Button _showPanoramaBim = new() { Content = "Consultar materiais BIM do Panorama", Height = 38, IsEnabled = false };
+    private readonly ComboBox _panoramaResolution = new() { Height = 32 };
+    private readonly CheckBox _panoramaFineDetails = new() {
+        Content = "Detalhes finos - captura 2x", IsChecked = false,
+        Margin = new Thickness(0, 10, 0, 4) };
     private readonly Button _capturePanorama = new() { Content = "Capturar seis faces (1024 px)", Height = 42 };
     private readonly Button _openPanoramaFolder = new() { Content = "Abrir pasta da captura Panorama", Height = 38, IsEnabled = false };
     private readonly ComboBox _panoramaFace = new() { Height = 32, IsEnabled = false };
@@ -116,7 +121,7 @@ internal sealed class PrintWindow : Window
 
     internal PrintWindow()
     {
-        Title = "Arqyzeng BIM v8.2 - Viewer 360 | Print v7.5.2";
+        Title = "Arqyzeng BIM v9.0.2 - Panorama IA experimental | Print v7.5.2";
         Width = 1080; Height = 700; MinWidth = 760; MinHeight = 540;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = new SolidColorBrush(Color.FromRgb(244, 246, 248));
@@ -167,7 +172,7 @@ internal sealed class PrintWindow : Window
         _vertical.ValueChanged += (_, _) => UpdateDimensions();
         _zoom.ValueChanged += (_, _) => UpdateDimensions();
         _previewTimer.Tick += (_, _) => { _previewTimer.Stop(); RefreshPreview(); };
-        Closed += (_, _) => { _closed = true; _panoramaCancellation?.Cancel(); _renderCancellation?.Cancel(); _apiKey.Clear(); _previewTimer.Stop(); _original = null; _bim = null; _rendered = null; _reference = null; _renderPng = null; _referencePng = null; _lastRenderCapture = null; _lastRenderSettings = null; _lastRenderQuality = null; _preview.Source = null; };
+        Closed += (_, _) => { _closed = true; ClosePanoramaAi(); _panoramaCancellation?.Cancel(); _renderCancellation?.Cancel(); _apiKey.Clear(); _previewTimer.Stop(); _original = null; _bim = null; _rendered = null; _reference = null; _renderPng = null; _referencePng = null; _lastRenderCapture = null; _lastRenderSettings = null; _lastRenderQuality = null; _preview.Source = null; };
         _frameMode.SelectedIndex = 0;
         _ratio.SelectedIndex = 3; _resolution.SelectedIndex = 1;
         _status.Text = "Abra uma vista 3D e ajuste o enquadramento no Revit. Depois clique em Capturar.";
@@ -183,18 +188,33 @@ internal sealed class PrintWindow : Window
         controls.Children.Add(Text("Panorama 360 - montagem 2:1", 20, true));
         controls.Children.Add(Text("Abra uma camera em perspectiva dentro do ambiente. A posicao dessa camera sera o centro das seis capturas.", 13));
         controls.Children.Add(Text("Teste inicial: quatro paredes, piso, teto, uma porta e uma janela. Evite posicionar a camera dentro de paredes ou moveis.", 13));
-        controls.Children.Add(Text("Serão exportadas frente, direita, tras, esquerda, cima e baixo. Alvo: 1024 x 1024 px e 90 graus por face.", 13));
-        controls.Children.Add(Text("A captura usa uma camera temporaria sombreada, com luz fixa no modelo e sem caixa de corte. Usa fase e nivel de detalhe da vista ativa. Filtros e elementos ocultos da vista original nao sao copiados.", 12));
+        controls.Children.Add(Text("Serão exportadas frente, direita, tras, esquerda, cima e baixo. Cada face final usa 90 graus; a captura inclui margem extra para evitar bordas nas emendas. A resolucao escolhida define o tamanho das faces e do panorama final.", 13));
+        controls.Children.Add(Text("A captura duplica temporariamente a vista original e conserva seu estilo visual. Para texturas, prepare a origem em Realista. A caixa de corte e preservada, com o contorno oculto somente na copia de captura. Luz relativa a camera e adaptada para luz fixa, com aviso. Desative modos temporarios antes de capturar.", 12));
+        controls.Children.Add(Text("Qualidade da captura"));
+        _panoramaResolution.Items.Add("Rapida: faces 1024 - panorama 4096 x 2048");
+        _panoramaResolution.Items.Add("Alta: faces 2048 - panorama 8192 x 4096");
+        _panoramaResolution.SelectionChanged += (_, _) =>
+            _capturePanorama.Content = _panoramaResolution.SelectedIndex == 1
+                ? "Capturar seis faces (2048 px)" : "Capturar seis faces (1024 px)";
+        _panoramaResolution.SelectedIndex = 0;
+        controls.Children.Add(_panoramaResolution);
+        controls.Children.Add(_panoramaFineDetails);
+        controls.Children.Add(Text("Detalhes finos captura o dobro da resolucao em cada eixo e reduz para o tamanho final. Pode melhorar linhas finas e texturas, com quatro vezes mais pixels brutos. A captura demora mais e usa mais memoria. Nao altera cores, iluminacao ou materiais.", 12));
+        controls.Children.Add(Text("Alta captura mais pixels diretamente do Revit. Usa mais memoria e demora mais; nao corrige luz, materiais ou emendas. Para capturas salvas, a montagem usa a resolucao das faces do arquivo selecionado.", 12));
         controls.Children.Add(_capturePanorama);
         controls.Children.Add(_openPanoramaFolder);
+        controls.Children.Add(_showPanoramaBim);
+        _showPanoramaBim.Click += (_, _) => ShowPanoramaBim();
+        controls.Children.Add(Text("Materiais BIM: nome, classe, cor grafica, transparencia e categorias por face. Sao candidatos da vista; nao identificacao por pixel, especie de madeira ou leitura do arquivo de textura. A consulta fica salva em panorama.json. Capturas antigas precisam ser refeitas para obter esses dados.", 12));
         controls.Children.Add(_buildPanorama);
         controls.Children.Add(_viewPanorama);
         _viewPanorama.Click += (_, _) => OpenPanoramaViewer();
         controls.Children.Add(_cancelPanorama);
         _buildPanorama.Click += async (_, _) => await BuildPanoramaAsync();
         _cancelPanorama.Click += (_, _) => { _panoramaCancellation?.Cancel(); _cancelPanorama.IsEnabled = false; };
-        controls.Children.Add(Text("Monte um panorama 4096 x 2048 a partir de panorama.json de uma captura validada. O PNG e salvo junto das faces. Use Visualizar panorama 360 para olhar ao redor com o mouse. Tambem abre um PNG 2:1 ja salvo. Sem IA.", 12));
+        controls.Children.Add(Text("Monte um panorama 4096 x 2048 ou 8192 x 4096, conforme as faces, a partir de panorama.json de uma captura validada. O PNG e salvo junto das faces. Use Visualizar panorama 360 para olhar ao redor com o mouse. Tambem abre um PNG 2:1 ja salvo. Esta montagem conserva a captura original; a edicao com IA e opcional no painel abaixo.", 12));
         controls.Children.Add(_panoramaInfo);
+        controls.Children.Add(CreatePanoramaAiPanel());
         grid.Children.Add(new ScrollViewer { Content = controls, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         var preview = new DockPanel();
         var label = Text("Conferir as seis faces", 16, true);
@@ -210,9 +230,12 @@ internal sealed class PrintWindow : Window
             {
                 if (PanoramaRequested is null) throw new InvalidOperationException("O painel nao esta conectado ao Revit.");
                 SetBusy(true);
-                _panoramaInfo.Text = "Capturando seis direcoes e medindo o campo de visao. Aguarde o Revit concluir.";
+                _panoramaInfo.Text = _panoramaFineDetails.IsChecked == true
+                    ? "Capturando seis direcoes com amostragem 2x para detalhes finos. A exportacao pode demorar mais; aguarde o Revit concluir."
+                    : "Capturando seis direcoes e medindo o campo de visao. Aguarde o Revit concluir.";
                 _status.Text = _panoramaInfo.Text;
-                PanoramaRequested.Invoke();
+                PanoramaRequested.Invoke(_panoramaResolution.SelectedIndex == 1 ? 2048 : 1024,
+                    _panoramaFineDetails.IsChecked == true ? 2 : 1);
             }
             catch (Exception exception) { ReceivePanoramaFailure(exception.Message); }
         };
@@ -238,10 +261,12 @@ internal sealed class PrintWindow : Window
         foreach (var face in result.Faces) _panoramaFace.Items.Add(face.Name);
         _panoramaFace.IsEnabled = true;
         _openPanoramaFolder.IsEnabled = true;
+        _showPanoramaBim.IsEnabled = true;
         _panoramaFace.SelectedIndex = 0;
         _status.Text = result.Validated
             ? "Panorama: seis faces salvas; camera, dimensoes e FOV passaram na verificacao numerica. Confira visualmente as bordas."
             : "Panorama: seis imagens diagnosticas salvas. Ha medidas fora do alvo; ainda nao sao um cubemap validado. Abra a pasta e envie panorama.json.";
+        if (!string.IsNullOrWhiteSpace(result.AppearanceNote)) _status.Text += "\n" + result.AppearanceNote;
         _panoramaInfo.Text = _status.Text + "\n\nVista: " + result.SourceView + "\nPasta: " + result.Folder;
     }
 
@@ -252,6 +277,22 @@ internal sealed class PrintWindow : Window
         if (_original is not null) RefreshPreview();
         _panoramaInfo.Text = "Nao foi possivel capturar Panorama: " + message;
         _status.Text = _panoramaInfo.Text;
+    }
+
+    private void ShowPanoramaBim()
+    {
+        if (_busy || _panoramaResult is null) return;
+        var text = new System.Text.StringBuilder();
+        text.AppendLine("MATERIAIS BIM DO PANORAMA - " + _panoramaResult.SourceView);
+        text.AppendLine("Consulta independente por orientacao da camera. Um mesmo elemento/material pode aparecer em varias faces. Nao some as contagens; nao ha associacao com pixels nem garantia de visibilidade.");
+        text.AppendLine("Nome e classe sao informacoes cadastradas. Dados genericos nao confirmam madeira, especie, acabamento ou fabricante. A cor grafica pode diferir da textura e da iluminacao da imagem. Assets e arquivos de textura nao foram analisados.");
+        foreach (var face in _panoramaResult.Faces)
+        {
+            text.AppendLine();
+            text.AppendLine("FACE: " + face.Name);
+            text.AppendLine(BimContextFormatter.Format(face.Bim));
+        }
+        ShowText("Materiais BIM do Panorama", "Dados salvos no instante da captura. Capture novamente depois de mudar o modelo. Esta consulta nao altera os materiais nem gera render com IA.", text.ToString());
     }
 
     private void OpenPanoramaViewer()
@@ -288,15 +329,15 @@ internal sealed class PrintWindow : Window
         try
         {
             SetBusy(true); _cancelPanorama.IsEnabled = true;
-            _status.Text = "Montando panorama 4096 x 2048. Aguarde; o Revit pode continuar aberto.";
+            _status.Text = "Montando panorama na resolucao das faces salvas. Aguarde; o Revit pode continuar aberto.";
             _panoramaInfo.Text = _status.Text;
             var result = await Task.Run(() => PanoramaProjectionService.Build(dialog.FileName, cancellation.Token), cancellation.Token);
             if (_closed) return;
             ReceivePanorama(result.Capture);
             _panoramaProjectionPath = result.Path;
-            _panoramaFace.Items.Add("Panorama 2:1 - 4096 x 2048");
+            _panoramaFace.Items.Add($"Panorama 2:1 - {result.Width} x {result.Height}");
             _panoramaFace.SelectedIndex = result.Capture.Faces.Length;
-            _status.Text = "Panorama 4096 x 2048 salvo. Confira teto, piso, portas e continuidade entre as extremidades.";
+            _status.Text = $"Panorama {result.Width} x {result.Height} salvo. Confira teto, piso, portas e continuidade entre as extremidades.";
         }
         catch (OperationCanceledException)
         {
@@ -321,14 +362,14 @@ internal sealed class PrintWindow : Window
             if (_panoramaFace.SelectedIndex == _panoramaResult.Faces.Length && _panoramaProjectionPath is not null)
             {
                 _panoramaPreview.Source = ImagePipeline.Load(_panoramaProjectionPath);
-                _panoramaInfo.Text = "Panorama equiretangular 4096 x 2048 (360 x 180 graus). Frente no centro; a direcao de tras fecha nas duas bordas.\n\n" + _panoramaProjectionPath;
+                _panoramaInfo.Text = "Panorama equiretangular 2:1 (360 x 180 graus). Frente no centro; a direcao de tras fecha nas duas bordas.\n\n" + _panoramaProjectionPath;
                 return;
             }
             var face = _panoramaResult.Faces[_panoramaFace.SelectedIndex];
             _panoramaPreview.Source = ImagePipeline.Load(face.Path);
             _panoramaInfo.Text = $"{face.Name}: {face.Width} x {face.Height} px\nFOV horizontal: {face.HorizontalFov:F4} graus\nFOV vertical: {face.VerticalFov:F4} graus\n" +
                 (face.Validated ? "Verificacao numerica aprovada." : "Medidas fora do alvo: face apenas diagnostica.") +
-                (face.RasterNormalized ? $"\nRaster bruto: {face.RawWidth} x {face.RawHeight}; arredondamento normalizado sem recorte." : "") + "\n\n" + _panoramaResult.Folder;
+                (face.RasterNormalized ? $"\nRaster bruto: {face.RawWidth} x {face.RawHeight}; convertido para a face final de 90 graus." : "") + "\n\n" + _panoramaResult.Folder;
         }
         catch (Exception exception) { _panoramaInfo.Text = "Nao foi possivel abrir a face: " + exception.Message; }
     }
@@ -561,12 +602,16 @@ internal sealed class PrintWindow : Window
 
     private void SetBusy(bool busy)
     {
+        _showPanoramaBim.IsEnabled = !busy && _panoramaResult is not null;
+        _panoramaResolution.IsEnabled = !busy;
+        _panoramaFineDetails.IsEnabled = !busy;
         _viewPanorama.IsEnabled = !busy;
         _buildPanorama.IsEnabled = !busy;
         _capturePanorama.IsEnabled = !busy;
         _openPanoramaFolder.IsEnabled = !busy && _panoramaResult is not null;
         _panoramaFace.IsEnabled = !busy && _panoramaResult is not null;
-        _busy = busy; _settings.IsEnabled = !busy; _capture.IsEnabled = !busy; _guideButton.IsEnabled = !busy; _prepareButton.IsEnabled = !busy;
+        _busy = busy;
+        SetPanoramaAiBusy(busy); _settings.IsEnabled = !busy; _capture.IsEnabled = !busy; _guideButton.IsEnabled = !busy; _prepareButton.IsEnabled = !busy;
         if (busy) _previewTimer.Stop();
         _renderControls.IsEnabled = !busy;
         _showPrompt.IsEnabled = !busy && _original is not null;

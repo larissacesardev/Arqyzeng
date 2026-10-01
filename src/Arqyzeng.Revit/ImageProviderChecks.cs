@@ -39,6 +39,7 @@ internal static class ImageProviderChecks
             string body = await request.Content!.ReadAsStringAsync(token);
             Require(body.Contains("image/png") && body.Contains("image[]") && body.Contains("captura.png") &&
                 body.Contains(OpenAiImageProvider.Model) && body.Contains("1536x864") && body.Contains("PROMPT_DE_TESTE"), "Imagem ou parametros ausentes.");
+            Require(!body.Contains("mascara.png"), "Print enviou mascara sem solicita-la.");
             Require(!body.Contains("CHAVE_FICTICIA"), "Credencial no corpo do formulario.");
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
         });
@@ -108,6 +109,44 @@ internal static class ImageProviderChecks
             cancellation.Cancel(); rejected = false;
             try { await task; } catch (OperationCanceledException) { rejected = true; }
             Require(rejected && pending.Count == 1, "Cancelamento durante a chamada falhou.");
+        }
+        // Panorama: os dois tamanhos 2:1 passam pelo mesmo contrato HTTP, sem chamada real.
+        foreach (int width in new[] { 1536, 2048 })
+        {
+            byte[] panoramaPng = (byte[])png.Clone();
+            BinaryPrimitives.WriteUInt32BigEndian(panoramaPng.AsSpan(16, 4), (uint)width);
+            BinaryPrimitives.WriteUInt32BigEndian(panoramaPng.AsSpan(20, 4), (uint)(width / 2));
+            var panoramaRequest = new ImageEditRequest(panoramaPng, "PANORAMA_EQUIRECTANGULAR", width, width / 2, "low");
+            var panoramaHandler = new FakeHandler(async (request, token) =>
+            {
+                string body = await request.Content!.ReadAsStringAsync(token);
+                Require(body.Contains($"{width}x{width / 2}") && body.Contains("PANORAMA_EQUIRECTANGULAR") &&
+                    !body.Contains("CHAVE_FICTICIA"), "Panorama: dimensoes ou corpo HTTP incorretos.");
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(
+                    JsonSerializer.Serialize(new { data = new[] { new { b64_json = Convert.ToBase64String(panoramaPng) } } })) };
+            });
+            using var http = new HttpClient(panoramaHandler);
+            var panoramaResult = await new OpenAiImageProvider(http).EditAsync(panoramaRequest, "CHAVE_FICTICIA", CancellationToken.None);
+            Require(panoramaHandler.Count == 1 && panoramaResult.Width == width && panoramaResult.Height * 2 == width,
+                "Panorama: chamada repetida ou resultado fora de 2:1.");
+        }
+        byte[] maskPng = (byte[])png.Clone(); maskPng[25] = 6;
+        var maskedHandler = new FakeHandler(async (request, token) => {
+            string body = await request.Content!.ReadAsStringAsync(token);
+            Require(body.Contains("mascara.png") && body.Contains("mask") && !body.Contains("CHAVE_FICTICIA"), "Mascara ausente ou credencial exposta.");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+        using (var http = new HttpClient(maskedHandler))
+            await new OpenAiImageProvider(http).EditAsync(edit with { MaskPng = maskPng }, "CHAVE_FICTICIA", CancellationToken.None);
+        Require(maskedHandler.Count == 1, "Reparo: chamada duplicada.");
+        byte[] badMask = (byte[])maskPng.Clone();
+        BinaryPrimitives.WriteUInt32BigEndian(badMask.AsSpan(16, 4), 1024);
+        var badMaskHandler = new FakeHandler((_, _) => throw new InvalidOperationException("Nao deve enviar mascara invalida."));
+        using (var http = new HttpClient(badMaskHandler)) {
+            rejected = false;
+            try { await new OpenAiImageProvider(http).EditAsync(edit with { MaskPng = badMask }, "CHAVE_FICTICIA", CancellationToken.None); }
+            catch (ArgumentException) { rejected = true; }
+            Require(rejected && badMaskHandler.Count == 0, "Mascara divergente foi enviada.");
         }
         Console.WriteLine("OpenAI: contrato HTTP, dimensoes, erros sem vazamento, tentativa unica e cancelamento aprovados (servico simulado, sem custo).");
     }

@@ -61,7 +61,7 @@ internal sealed class PrintCaptureHandler : IExternalEventHandler
             if (request.Action == PrintAction.Panorama)
             {
                 StopGuide(true); StopPreparation();
-                window.ReceivePanorama(PanoramaCaptureService.Capture(document, view));
+                window.ReceivePanorama(PanoramaCaptureService.Capture(document, view, request.PanoramaFacePixels, request.PanoramaSamplingMultiplier));
                 return;
             }
             if (request.Action == PrintAction.Prepare)

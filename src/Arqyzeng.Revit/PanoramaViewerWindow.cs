@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Windows.Media.Imaging;
 using Arqyzeng.Panorama;
 
 namespace Arqyzeng.Revit;
@@ -18,7 +19,6 @@ internal sealed class PanoramaViewerWindow : Window
     private readonly TextBlock _info = new() { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12, 8, 12, 8) };
     private readonly Border _interaction;
     private readonly Slider _fov = new() { Minimum = 35, Maximum = 110, Value = 75, Width = 170, Margin = new Thickness(8) };
-    private readonly MeshGeometry3D _sphere;
     private double _yaw, _pitch;
     private bool _dragging, _fullscreen;
     private Point _lastPointer;
@@ -27,14 +27,16 @@ internal sealed class PanoramaViewerWindow : Window
     private ResizeMode _previousResize;
     private string _filename = "";
     private string _imageSize = "";
+    private string _textureInfo = "";
 
-    internal PanoramaViewerWindow(string path)
+    internal PanoramaViewerWindow(string path) : this() { LoadPanorama(path); }
+    internal PanoramaViewerWindow(BitmapSource image, string label) : this() { LoadPanorama(image, label); }
+    private PanoramaViewerWindow()
     {
-        Title = "Arqyzeng BIM - Viewer 360 v8.2";
+        Title = "Arqyzeng BIM - Viewer 360 v8.2.7";
         Width = 1100; Height = 760; MinWidth = 640; MinHeight = 440;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = new SolidColorBrush(Color.FromRgb(28, 30, 34));
-        _sphere = CreateSphere();
         _viewport.Camera = _camera;
         _interaction = new Border { Background = Brushes.Black, Child = _viewport, Cursor = Cursors.Hand, Focusable = true, ClipToBounds = true };
         var root = new DockPanel();
@@ -83,23 +85,46 @@ internal sealed class PanoramaViewerWindow : Window
             else if (e.Key == Key.Down) { _pitch -= 5; UpdateCamera(); e.Handled = true; }
         };
         Closed += (_, _) => { StopDrag(); _viewport.Children.Clear(); _viewport.Camera = null; };
-        LoadPanorama(path);
     }
     private static Button Button(string text) => new() { Content = text, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(4) };
     private void LoadPanorama(string path)
     {
         if (!File.Exists(path)) throw new InvalidOperationException("PNG nao encontrado.");
-        var image = ImagePipeline.Load(path);
+        LoadPanorama(ImagePipeline.Load(path), System.IO.Path.GetFileName(path));
+    }
+    private void LoadPanorama(BitmapSource image, string label)
+    {
         if (image.PixelWidth != 2 * image.PixelHeight || image.PixelHeight < 256 || image.PixelWidth > 8192)
             throw new InvalidOperationException("Use um panorama PNG 2:1, com largura entre 512 e 8192 pixels.");
-        var brush = new ImageBrush(image) { Stretch = Stretch.Fill };
-        brush.Freeze();
-        // Material emissivo evita aplicar outra iluminacao sobre a imagem pronta.
-        var material = new EmissiveMaterial(brush); material.Freeze();
-        var model = new GeometryModel3D(_sphere, material); model.Freeze();
-        _viewport.Children.Clear(); _viewport.Children.Add(new ModelVisual3D { Content = model });
-        _filename = System.IO.Path.GetFileName(path); _imageSize = $"{image.PixelWidth} x {image.PixelHeight}";
+        var rgb = new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
+        rgb.Freeze();
+        var group = new Model3DGroup();
+        // Evitar uma unica textura de 8192 px: carregar partes em resolucao nativa.
+        int textureLimit = (int)Math.Min(RenderCapability.MaxHardwareTextureSize.Width,
+            RenderCapability.MaxHardwareTextureSize.Height);
+        int tileSize = textureLimit >= 68 ? Math.Min(1024, textureLimit - 4) : 1024;
+        var tiles = PanoramaViewerMath.TextureTiles(image.PixelWidth, image.PixelHeight, tileSize);
+        foreach (var tile in tiles)
+        {
+            var texture = CreateTexture(rgb, tile);
+            var brush = new ImageBrush(texture) { Stretch = Stretch.Fill, TileMode = TileMode.None };
+            brush.Freeze();
+            // Emissivo conserva os pixels: o viewer nao aplica iluminacao adicional.
+            var material = new EmissiveMaterial(brush); material.Freeze();
+            var model = new GeometryModel3D(CreateSpherePatch(tile, image.PixelWidth, image.PixelHeight), material);
+            model.Freeze(); group.Children.Add(model);
+        }
+        group.Freeze();
+        // Trocar apenas depois de montar tudo: manter a imagem anterior se a abertura falhar.
+        _viewport.Children.Clear(); _viewport.Children.Add(new ModelVisual3D { Content = group });
+        _textureInfo = $"{tiles.Length} partes em resolucao nativa | WPF tier {RenderCapability.Tier >> 16}";
+        _filename = label; _imageSize = $"{image.PixelWidth} x {image.PixelHeight}";
         _yaw = 0; _pitch = 0; _fov.Value = 75; UpdateCamera();
+    }
+    internal void LookAtLongitude(double yaw)
+    {
+        if (!double.IsFinite(yaw)) throw new ArgumentException("Direcao invalida.");
+        _yaw = yaw; _pitch = 0; UpdateCamera();
     }
     private void OpenAnotherPanorama()
     {
@@ -114,7 +139,7 @@ internal sealed class PanoramaViewerWindow : Window
         var look = PanoramaViewerMath.Direction(_yaw, _pitch);
         _camera.LookDirection = new Vector3D(look.X, look.Y, look.Z);
         _camera.FieldOfView = _fov.Value;
-        _info.Text = $"{_filename} | {_imageSize} px | Direcao: {_yaw:F1} graus | Altura: {_pitch:F1} graus | FOV: {_fov.Value:F0} graus\nArraste para olhar ao redor. Roda do mouse: zoom. Setas: direcao. F11: tela cheia. Esc: sair da tela cheia.";
+        _info.Text = $"{_filename} | {_imageSize} px | {_textureInfo} | Direcao: {_yaw:F1} graus | Altura: {_pitch:F1} graus | FOV: {_fov.Value:F0} graus\nArraste para olhar ao redor. Roda do mouse: zoom. Setas: direcao. F11: tela cheia. Esc: sair da tela cheia.";
     }
     private void StopDrag() { _dragging = false; if (_interaction.IsMouseCaptured) _interaction.ReleaseMouseCapture(); }
     private void ToggleFullscreen()
@@ -128,24 +153,50 @@ internal sealed class PanoramaViewerWindow : Window
         else { WindowState = WindowState.Normal; WindowStyle = _previousStyle; ResizeMode = _previousResize; WindowState = _previousState; }
         _fullscreen = !_fullscreen;
     }
-    private static MeshGeometry3D CreateSphere()
+    private static BitmapSource CreateTexture(BitmapSource source, PanoramaTextureTile tile)
     {
-        const int columns = 128, rows = 64; const double radius = 10;
+        int stride = tile.PaddedWidth * 4;
+        byte[] pixels = new byte[stride * tile.PaddedHeight];
+        for (int y = 0; y < tile.PaddedHeight; y++)
+        {
+            int sourceY = Math.Clamp(tile.Y + y - PanoramaTextureTile.Gutter, 0, source.PixelHeight - 1);
+            source.CopyPixels(new Int32Rect(tile.X, sourceY, tile.Width, 1), pixels, stride,
+                y * stride + PanoramaTextureTile.Gutter * 4);
+            for (int margin = 0; margin < PanoramaTextureTile.Gutter; margin++)
+            {
+                int left = PanoramaViewerMath.WrapPixelX(tile.X + margin - PanoramaTextureTile.Gutter, source.PixelWidth);
+                int right = PanoramaViewerMath.WrapPixelX(tile.X + tile.Width + margin, source.PixelWidth);
+                source.CopyPixels(new Int32Rect(left, sourceY, 1, 1), pixels, stride, y * stride + margin * 4);
+                source.CopyPixels(new Int32Rect(right, sourceY, 1, 1), pixels, stride,
+                    y * stride + (PanoramaTextureTile.Gutter + tile.Width + margin) * 4);
+            }
+        }
+        var bitmap = BitmapSource.Create(tile.PaddedWidth, tile.PaddedHeight, 96, 96,
+            PixelFormats.Bgra32, null, pixels, stride);
+        bitmap.Freeze(); return bitmap;
+    }
+    private static MeshGeometry3D CreateSpherePatch(PanoramaTextureTile tile, int width, int height)
+    {
+        // Cerca de 256 x 128 segmentos na esfera inteira; vertices comuns nas juncoes.
+        int columns = Math.Max(1, (int)Math.Ceiling(256d * tile.Width / width));
+        int rows = Math.Max(1, (int)Math.Ceiling(128d * tile.Height / height));
+        const double radius = 10;
         var mesh = new MeshGeometry3D();
         for (int y = 0; y <= rows; y++)
             for (int x = 0; x <= columns; x++)
             {
-                double u = (double)x / columns, v = (double)y / rows;
+                double localU = (double)x / columns, localV = (double)y / rows;
+                double u = (tile.X + localU * tile.Width) / width;
+                double v = (tile.Y + localV * tile.Height) / height;
                 var direction = PanoramaViewerMath.SpherePoint(u, v);
                 mesh.Positions.Add(new Point3D(direction.X * radius, direction.Y * radius, direction.Z * radius));
                 mesh.Normals.Add(new Vector3D(-direction.X, -direction.Y, -direction.Z));
-                mesh.TextureCoordinates.Add(new Point(u, v));
+                mesh.TextureCoordinates.Add(new Point(tile.TextureU(localU), tile.TextureV(localV)));
             }
         for (int y = 0; y < rows; y++)
             for (int x = 0; x < columns; x++)
             {
                 int a = y * (columns + 1) + x, b = a + columns + 1, c = a + 1, d = b + 1;
-                // Faces orientadas para o observador no centro da esfera.
                 mesh.TriangleIndices.Add(a); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(c);
                 mesh.TriangleIndices.Add(c); mesh.TriangleIndices.Add(b); mesh.TriangleIndices.Add(d);
             }

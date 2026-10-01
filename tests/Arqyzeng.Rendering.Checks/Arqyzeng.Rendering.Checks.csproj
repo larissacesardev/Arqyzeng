@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\Arqyzeng.Revit\PanoramaSeamMath.cs" Link="PanoramaSeamMath.cs" />
+    <Compile Include="..\..\src\Arqyzeng.Revit\PanoramaRenderContract.cs" Link="PanoramaRenderContract.cs" />
     <Compile Include="..\..\src\Arqyzeng.Revit\PanoramaViewerMath.cs" Link="PanoramaViewerMath.cs" />
     <Compile Include="..\..\src\Arqyzeng.Revit\CubeProjection.cs" Link="CubeProjection.cs" />
     <Compile Include="..\..\src\Arqyzeng.Revit\RenderSettings.cs" Link="RenderSettings.cs" />

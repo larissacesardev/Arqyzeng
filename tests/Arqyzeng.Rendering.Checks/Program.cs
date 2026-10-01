@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Arqyzeng.Core;
 using Arqyzeng.Rendering;
@@ -171,3 +172,184 @@ Require(Arqyzeng.Panorama.PanoramaViewerMath.WrapYaw(360) == 0 &&
     Arqyzeng.Panorama.PanoramaViewerMath.WrapYaw(-360) == 0 &&
     Arqyzeng.Panorama.PanoramaViewerMath.WrapYaw(181) == -179, "Viewer: fechamento de longitude incorreto.");
 Console.WriteLine("Viewer 360: frente, laterais, polos, fechamento e 1000 coordenadas de textura conferidos.");
+
+// Limites de resolucao: aceitar somente os dois modos; nunca normalizar um erro maior que um pixel.
+foreach (int edge in new[] { 1024, 2048 })
+{
+    var size = Arqyzeng.Panorama.CubeProjection.OutputSize(edge);
+    Require(size.Width == (edge == 1024 ? 4096 : 8192) && size.Width == size.Height * 2,
+        "Panorama: resolucao final ou proporcao incorreta.");
+    for (int dx = -2; dx <= 2; dx++)
+        for (int dy = -2; dy <= 2; dy++)
+            Require(Arqyzeng.Panorama.CubeProjection.CanNormalizeRaster(edge + dx, edge + dy, edge) ==
+                (Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1), "Panorama: tolerancia de raster incorreta.");
+    Require(!Arqyzeng.Panorama.CubeProjection.CanNormalizeRaster(int.MinValue, int.MaxValue, edge),
+        "Panorama: raster extremo aceito.");
+}
+foreach (int invalidSize in new[] { -1, 0, 512, 1536, 4096, int.MaxValue })
+{
+    bool rejected = false;
+    try { Arqyzeng.Panorama.CubeProjection.OutputSize(invalidSize); }
+    catch (ArgumentOutOfRangeException) { rejected = true; }
+    Require(rejected, "Panorama: tamanho de face nao suportado aceito.");
+}
+Console.WriteLine("Panorama: modos 4K/8K, proporcao 2:1, tolerancia de um pixel e limites de resolucao conferidos.");
+
+// Overscan: preservar o mesmo raio de 90 graus, com bordas fora da regiao util.
+foreach (int faceSize in new[] { 1024, 2048 })
+{
+    int rawSize = Arqyzeng.Panorama.CubeProjection.OverscanPixels(faceSize);
+    Require(rawSize > faceSize, "Overscan: resolucao bruta nao aumentou.");
+    foreach (int delta in new[] { -1, 0, 1 })
+    {
+        double hfov = 93.98, vfov = 94.02;
+        var region = Arqyzeng.Panorama.CubeProjection.CentralFaceRegion(rawSize, rawSize + delta, hfov, vfov);
+        Require(region.X >= 8 && region.Y >= 8, "Overscan: margem insuficiente.");
+        Require(Math.Abs(region.X * 2 + region.Width - rawSize) < 1e-9 &&
+            Math.Abs(region.Y * 2 + region.Height - rawSize - delta) < 1e-9, "Overscan: centro da camera mudou.");
+        foreach (double coordinate in new[] { 0.0, .125, .5, .875, 1.0 })
+        {
+            double sourceX = region.X + coordinate * region.Width;
+            double sourceY = region.Y + coordinate * region.Height;
+            double rayX = (2 * sourceX / rawSize - 1) * Math.Tan(hfov * Math.PI / 360);
+            double rayY = (2 * sourceY / (rawSize + delta) - 1) * Math.Tan(vfov * Math.PI / 360);
+            Require(Math.Abs(rayX - (2 * coordinate - 1)) < 1e-12 &&
+                Math.Abs(rayY - (2 * coordinate - 1)) < 1e-12,
+                "Overscan: raio final nao corresponde ao cubemap de 90 graus.");
+        }
+    }
+}
+foreach (double invalidFov in new[] { 90.0, 89.0, 100.0, double.NaN, double.PositiveInfinity })
+{
+    bool rejected = false;
+    try { Arqyzeng.Panorama.CubeProjection.CentralFaceRegion(2048, 2048, invalidFov, 94); }
+    catch (ArgumentException) { rejected = true; }
+    Require(rejected, "Overscan: FOV invalido aceito.");
+}
+Console.WriteLine("Panorama overscan: centro, margem e raios exatos de 90 graus conferidos nos dois modos.");
+
+// Particionamento: cada pixel pertence a uma unica parte, UV exata e margens circulares.
+foreach (int panoramaWidth in new[] { 512, 4096, 8192 })
+{
+    int panoramaHeight = panoramaWidth / 2;
+    var tiles = Arqyzeng.Panorama.PanoramaViewerMath.TextureTiles(panoramaWidth, panoramaHeight);
+    long area = 0;
+    foreach (var tile in tiles)
+    {
+        area += (long)tile.Width * tile.Height;
+        Require(tile.Width <= 1024 && tile.Height <= 1024 && tile.X >= 0 && tile.Y >= 0 &&
+            tile.X + tile.Width <= panoramaWidth && tile.Y + tile.Height <= panoramaHeight,
+            "Viewer: parte fora do raster ou textura muito grande.");
+        foreach (double fraction in new[] { 0.0, .25, .5, .75, 1.0 })
+        {
+            double recoveredX = tile.TextureU(fraction) * tile.PaddedWidth - Arqyzeng.Panorama.PanoramaTextureTile.Gutter;
+            double recoveredY = tile.TextureV(fraction) * tile.PaddedHeight - Arqyzeng.Panorama.PanoramaTextureTile.Gutter;
+            Require(Math.Abs(recoveredX - fraction * tile.Width) < 1e-10 &&
+                Math.Abs(recoveredY - fraction * tile.Height) < 1e-10, "Viewer: margem deslocou coordenadas.");
+        }
+    }
+    Require(area == (long)panoramaWidth * panoramaHeight, "Viewer: partes nao cobrem todos os pixels.");
+    Require(Arqyzeng.Panorama.PanoramaViewerMath.WrapPixelX(-1, panoramaWidth) == panoramaWidth - 1 &&
+        Arqyzeng.Panorama.PanoramaViewerMath.WrapPixelX(panoramaWidth, panoramaWidth) == 0,
+        "Viewer: margem nao fecha a longitude.");
+    for (int i = 0; i < tiles.Length; i++)
+        for (int j = i + 1; j < tiles.Length; j++)
+            Require(tiles[i].X + tiles[i].Width <= tiles[j].X || tiles[j].X + tiles[j].Width <= tiles[i].X ||
+                tiles[i].Y + tiles[i].Height <= tiles[j].Y || tiles[j].Y + tiles[j].Height <= tiles[i].Y,
+                "Viewer: partes se sobrepoem.");
+}
+Console.WriteLine("Viewer: partes nativas, cobertura completa, UV e fechamento das margens conferidos.");
+
+// Mais amostras nativas, mesmo quadro e mesmas dimensoes finais; nenhuma ampliacao de PNG antigo.
+foreach (int faceSize in new[] { 1024, 2048 })
+{
+    int standardRaw = Arqyzeng.Panorama.CubeProjection.OverscanPixels(faceSize, 1);
+    int fineRaw = Arqyzeng.Panorama.CubeProjection.OverscanPixels(faceSize, 2);
+    Require(Math.Abs(fineRaw - 2 * standardRaw) <= 1 && fineRaw < 5000,
+        "Panorama: resolucao bruta de detalhes finos incorreta.");
+    foreach (int sampling in new[] { 1, 2 })
+    {
+        int raw = Arqyzeng.Panorama.CubeProjection.OverscanPixels(faceSize, sampling);
+        var region = Arqyzeng.Panorama.CubeProjection.CentralFaceRegion(raw, raw - 1, 94, 94);
+        Require(Math.Abs(region.Width - faceSize * sampling) < 1 &&
+            Math.Abs(region.Height - faceSize * sampling) < 1,
+            "Panorama: area central nao tem as amostras esperadas.");
+        double tangent = Math.Tan(94 * Math.PI / 360);
+        foreach (double coordinate in new[] { 0.0, .1, .5, .9, 1.0 })
+        {
+            double direction = (2 * (region.X + coordinate * region.Width) / raw - 1) * tangent;
+            Require(Math.Abs(direction - (2 * coordinate - 1)) < 1e-12,
+                "Panorama: detalhes finos deslocaram a camera ou mudaram o FOV.");
+        }
+        var output = Arqyzeng.Panorama.CubeProjection.OutputSize(faceSize);
+        Require(output.Width == 4 * faceSize && output.Height == 2 * faceSize,
+            "Panorama: modo de amostragem mudou a resolucao final.");
+    }
+}
+foreach (int invalidSampling in new[] { -1, 0, 3, int.MaxValue })
+{
+    bool rejected = false;
+    try { Arqyzeng.Panorama.CubeProjection.OverscanPixels(2048, invalidSampling); }
+    catch (ArgumentOutOfRangeException) { rejected = true; }
+    Require(rejected, "Panorama: fator de amostragem invalido aceito.");
+}
+Console.WriteLine("Panorama: amostragem 1x/2x, limite de raster e invariancia de camera/dimensoes conferidos.");
+
+// Contrato IA 360 separado: dimensoes reais, preservacao da projecao e fechamento.
+foreach (RenderProfile profile in Enum.GetValues<RenderProfile>())
+foreach (int width in new[] { 1536, 2048 })
+{
+    string contract = Arqyzeng.Panorama.PanoramaRenderContract.Build(profile, width, width / 2, rules, null);
+    Require(contract.Contains("360 x 180") && contract.Contains("equirectangular") &&
+        contract.Contains("SAME meridian") && contract.Contains("zenith and nadir") &&
+        contract.Contains($"{width} x {width / 2} pixels"), "Panorama IA: projecao, polos ou tamanho ausentes.");
+    Require(contract.Contains("Fidelidade Maxima") && contract.Length <= 30000,
+        "Panorama IA: fidelidade ou limite do prompt incorretos.");
+}
+foreach (var invalid in new[] { (1536, 1024), (2048, 2048), (8192, 4096), (0, 0) })
+{
+    bool rejected = false;
+    try { Arqyzeng.Panorama.PanoramaRenderContract.Validate(invalid.Item1, invalid.Item2, "low"); }
+    catch (ArgumentException) { rejected = true; }
+    Require(rejected, "Panorama IA: dimensoes fora do contrato aceitas.");
+}
+bool invalidQualityRejected = false;
+try { Arqyzeng.Panorama.PanoramaRenderContract.Validate(1536, 768, "invalid"); }
+catch (ArgumentException) { invalidQualityRejected = true; }
+Require(invalidQualityRejected, "Panorama IA: qualidade invalida aceita.");
+Console.WriteLine("Panorama IA: Dia/Noite, contrato 360, polos, fechamento e resolucoes conferidos; nenhuma chamada paga.");
+
+// Regressao: Panorama nao pode herdar instrucoes de perspectiva do Print.
+string panoramaOnly = Arqyzeng.Panorama.PanoramaRenderContract.Build(RenderProfile.BumpDay, 2048, 1024, rules, null, "Porta ao lado do sofa => carvalho fosco.");
+Require(!panoramaOnly.Contains("ENQUADRAMENTO VINCULANTE") && !panoramaOnly.Contains("Evite fisheye") &&
+    panoramaOnly.Contains("BIM: unavailable") && panoramaOnly.Contains("carvalho fosco") &&
+    panoramaOnly.Contains("Do not invent tile joints"), "Panorama: regras de perspectiva ou material incerto incorretas.");
+bool descriptionsRejected = false;
+try { Arqyzeng.Panorama.PanoramaRenderContract.Build(RenderProfile.BumpDay, 2048, 1024, rules, null, new string('x', 2001)); }
+catch (ArgumentException) { descriptionsRejected = true; }
+Require(descriptionsRejected, "Panorama: descricao acima do limite aceita.");
+
+// Reparo 360: deslocamento reversivel, mascara central, pixels exteriores preservados.
+{
+    const int w = 512, h = 256;
+    byte[] raster = Enumerable.Range(0, w * h * 4).Select(i => (byte)(i % 251)).ToArray();
+    byte[] moved = Arqyzeng.Panorama.PanoramaSeamMath.RotateHalf(raster, w, h);
+    Require(Arqyzeng.Panorama.PanoramaSeamMath.RotateHalf(moved, w, h).SequenceEqual(raster), "Reparo: deslocamento nao reversivel.");
+    byte[] mask = Arqyzeng.Panorama.PanoramaSeamMath.Mask(w, h);
+    byte[] changed = Enumerable.Repeat((byte)255, raster.Length).ToArray();
+    byte[] limited = Arqyzeng.Panorama.PanoramaSeamMath.LimitToBand(raster, changed, w, h);
+    int half = Arqyzeng.Panorama.PanoramaSeamMath.HalfBand(w);
+    for (int y = 0; y < h; y++)
+    for (int x = 0; x < w; x++)
+    {
+        int offset = (y * w + x) * 4;
+        bool inside = x >= w / 2 - half && x < w / 2 + half;
+        Require(mask[offset + 3] == (inside ? 0 : 255), "Reparo: mascara invertida.");
+        if (!inside) Require(limited.AsSpan(offset, 4).SequenceEqual(raster.AsSpan(offset, 4)), "Reparo: pixel externo alterado.");
+    }
+    Require(limited[(h / 2 * w + w / 2) * 4] == 255, "Reparo: centro editavel nao aplicado.");
+}
+bool locationRejected = false;
+try { Arqyzeng.Panorama.PanoramaRenderContract.Build(RenderProfile.BumpDay, 2048, 1024, rules, null, "madeira marrom"); }
+catch (ArgumentException) { locationRejected = true; }
+Require(locationRejected, "Material sem localizacao aceito.");
