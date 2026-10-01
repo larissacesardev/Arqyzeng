@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Arqyzeng: checks",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\dev.ps1", "-Action", "Checks"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Arqyzeng: build",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\dev.ps1", "-Action", "Build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Arqyzeng: instalar",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\dev.ps1", "-Action", "Install"],
+      "problemMatcher": []
+    }
+  ]
+}

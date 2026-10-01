@@ -7,8 +7,14 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Arqyzeng.Revit</AssemblyName>
     <RootNamespace>Arqyzeng.Revit</RootNamespace>
-    <RevitInstallDir>C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == '' and '$(REVIT_2026_DIR)' != ''">$(REVIT_2026_DIR)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
   </PropertyGroup>
+  <Target Name="ValidateRevit2026References" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RevitInstallDir)\Revit.exe')" Text="Revit 2026 nao encontrado em '$(RevitInstallDir)'. Defina REVIT_2026_DIR ou passe -p:RevitInstallDir=CAMINHO para a instalacao do Revit 2026." />
+    <Error Condition="!Exists('$(RevitInstallDir)\RevitAPI.dll')" Text="RevitAPI.dll nao encontrada em '$(RevitInstallDir)'. Aponte para uma instalacao do Revit 2026; o Revit 2023 nao e usado automaticamente." />
+    <Error Condition="!Exists('$(RevitInstallDir)\RevitAPIUI.dll')" Text="RevitAPIUI.dll nao encontrada em '$(RevitInstallDir)'. Aponte para uma instalacao do Revit 2026; o Revit 2023 nao e usado automaticamente." />
+  </Target>
   <ItemGroup>
     <Reference Include="RevitAPI">
       <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
