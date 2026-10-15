@@ -2,6 +2,8 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.IO;
+using System.Collections.Immutable;
+using Arqyzeng.SceneScan;
 
 namespace Arqyzeng.Revit;
 
@@ -119,7 +121,28 @@ internal sealed class PrintCaptureHandler : IExternalEventHandler
                 PluginLog.Write("Captura preservada; leitura BIM indisponivel.", exception);
                 bim = BimSceneReader.Unavailable();
             }
-            var result = new CaptureResult(images[0], view.Name, bim);
+            SceneScanSnapshot? sceneScan = null;
+            try
+            {
+                var corners = ImmutableArray<SceneVector>.Empty;
+                try
+                {
+                    var uiView = application.ActiveUIDocument?.GetOpenUIViews().FirstOrDefault(v => v.ViewId.Equals(view.Id));
+                    if (uiView is not null) corners = uiView.GetZoomCorners().Select(SceneScanUnits.Point).ToImmutableArray();
+                }
+                catch (Exception) { /* Optional viewport context; never synthesize missing corners. */ }
+                sceneScan = SceneScanEngine.Scan(document, view, viewportCorners: corners);
+                var stats = sceneScan.Statistics;
+                // No project/view names, material names or individual rays in the normal plugin log.
+                PluginLog.Write($"Scene Scan: candidates={stats.CandidateCount}; hits={stats.RayHits}/{stats.RayCount}; elements={stats.HitElementCount}; materials={stats.MaterialCount}; ms={stats.TotalMilliseconds:F0}; state={sceneScan.State}.");
+            }
+            catch (Exception exception) { PluginLog.Write("Captura preservada; Scene Scan indisponível.", exception); }
+            if (sceneScan is not null)
+            {
+                try { SceneScanSerializer.WriteDiagnostic(sceneScan); }
+                catch (Exception exception) { PluginLog.Write("Scene Scan preservado; diagnóstico não gravado.", exception); }
+            }
+            var result = new CaptureResult(images[0], view.Name, bim) { SceneScan = sceneScan };
             PluginLog.Write("Captura concluida.");
             window.ReceiveCapture(result);
         }

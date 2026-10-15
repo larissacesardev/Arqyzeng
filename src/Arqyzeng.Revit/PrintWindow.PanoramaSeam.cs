@@ -16,11 +16,11 @@ namespace Arqyzeng.Revit;
 
 internal sealed partial class PrintWindow
 {
-    private readonly Button _importPanoramaGeneration = new() { Content = "Abrir geracao IA salva", Height = 38 };
+    private readonly Button _importPanoramaGeneration = new() { Content = "Abrir geração IA salva", Height = 38 };
     private readonly Button _inspectMaterialCandidates = new() { Content = "Consultar materiais candidatos", Height = 38 };
     private readonly Button _repairPanoramaSeam = new() { Content = "Propor reparo da emenda (nova chamada paga)", Height = 42, IsEnabled = false };
     private readonly Button _viewSeamCandidate = new() { Content = "Ver candidato de reparo em 360", Height = 38, IsEnabled = false };
-    private readonly Button _applySeamCandidate = new() { Content = "Aplicar candidato apos conferir", Height = 38, IsEnabled = false };
+    private readonly Button _applySeamCandidate = new() { Content = "Aplicar candidato após conferir", Height = 38, IsEnabled = false };
     private readonly Button _discardSeamCandidate = new() { Content = "Descartar candidato", Height = 32, IsEnabled = false };
     private readonly Button _viewBeforeRepair = new() { Content = "Ver render anterior ao reparo", Height = 38, IsEnabled = false };
     private BitmapSource? _seamCandidateImage;
@@ -34,7 +34,6 @@ internal sealed partial class PrintWindow
         var panel = new StackPanel();
         panel.Children.Add(_inspectMaterialCandidates);
         panel.Children.Add(Text("Reparo local da emenda - experimental", 16, true));
-        panel.Children.Add(Text("Abre tambem geracoes ja salvas, sem gerar o render novamente. Reparar faz uma chamada adicional paga em qualidade Alta. A faixa cobre 30 graus em torno do fechamento; fora dela, os pixels do render anterior permanecem iguais. Dentro da faixa, a IA pode alterar geometria: compare antes de aplicar.", 12));
         panel.Children.Add(_importPanoramaGeneration); panel.Children.Add(_repairPanoramaSeam);
         panel.Children.Add(_viewSeamCandidate); panel.Children.Add(_viewBeforeRepair);
         panel.Children.Add(_applySeamCandidate); panel.Children.Add(_discardSeamCandidate);
@@ -45,8 +44,8 @@ internal sealed partial class PrintWindow
             string summary = snapshots is null ? "Sem dados BIM carregados." : string.Join("\n", snapshots
                 .Where(s => s is not null).SelectMany(s => s.Materials ?? []).Where(m => m is not null)
                 .GroupBy(m => (m.Name, m.MaterialClass, m.ColorRgb)).Select(g => g.First()).Take(200)
-                .Select(m => m.Name + " | " + m.MaterialClass + " | cor grafica: " + m.ColorRgb));
-            ShowText("Materiais candidatos", "Inclui camadas ocultas e outros ambientes. Consulte o Revit para confirmar. Informe local => acabamento no campo de descricoes; esta lista nao entra como especificacao no prompt.", summary);
+                .Select(m => m.Name + " | " + m.MaterialClass + " | cor gráfica: " + m.ColorRgb));
+            ShowText("Materiais candidatos", "Inclui camadas ocultas e outros ambientes. Consulte o Revit para confirmar. Informe local => acabamento no campo de descrições; esta lista não entra como especificação no prompt.", summary);
         };
         _repairPanoramaSeam.Click += async (_, _) => await RepairPanoramaSeamAsync();
         _viewSeamCandidate.Click += (_, _) => OpenPanoramaAiViewer(_seamCandidateImage, "Candidato: conferir emenda, teto, piso e geometria", true);
@@ -62,7 +61,7 @@ internal sealed partial class PrintWindow
             _seamCandidateImage = null; _seamCandidatePng = null;
             _panoramaAiGeneration = _panoramaAiGeneration with { CreatedAt = DateTimeOffset.Now };
             _panoramaAiSavedFolder = null; SetPanoramaAiBusy(false);
-            _panoramaAiInfo.Text = "Candidato aplicado por voce. Salve para criar uma nova pasta com o render anterior e evidencias do reparo. Fidelidade visual nao foi validada automaticamente.";
+            _panoramaAiInfo.Text = "Candidato aplicado por você. Salve para criar uma nova pasta com o render anterior e evidências do reparo. Fidelidade visual não foi validada automaticamente.";
         };
         _discardSeamCandidate.Click += (_, _) => {
             if (_busy) return;
@@ -74,7 +73,7 @@ internal sealed partial class PrintWindow
     private void ImportPanoramaGeneration()
     {
         if (_busy) return;
-        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Selecione generation.json da geracao salva", Filter = "Geracao IA (generation.json)|generation.json" };
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Selecione generation.json da geração salva", Filter = "Geração IA (generation.json)|generation.json" };
         if (dialog.ShowDialog(this) != true) return;
         try
         {
@@ -100,9 +99,9 @@ internal sealed partial class PrintWindow
             _panoramaAiReference = reference; _panoramaAiReferencePng = referencePng;
             _panoramaAiGeneration = generation with { Prompt = prompt, MaterialDescriptions = generation.MaterialDescriptions ?? "" };
             _panoramaAiSavedFolder = folder; UpdatePanoramaMaterialInfo(); SetPanoramaAiBusy(false);
-            _panoramaAiInfo.Text = "Geracao carregada para comparar ou propor reparo. Nenhuma API chamada. Para gerar outro render completo, selecione o panorama original.";
+            _panoramaAiInfo.Text = "Geração carregada para comparar ou propor reparo. Nenhuma API chamada. Para gerar outro render completo, selecione o panorama original.";
         }
-        catch { _panoramaAiInfo.Text = "Nao foi possivel carregar uma geracao 360 valida com referencia, render, prompt e metadados. O resultado anterior foi mantido."; }
+        catch { _panoramaAiInfo.Text = "Não foi possível carregar uma geração 360 válida com referência, render, prompt e metadados. O resultado anterior foi mantido."; }
     }
     private async Task RepairPanoramaSeamAsync()
     {
@@ -122,7 +121,7 @@ internal sealed partial class PrintWindow
             var request = new ImageEditRequest(requestPng, prompt, w, h, "high", maskPng);
             cancellation = new CancellationTokenSource(); _panoramaAiCancellation = cancellation;
             SetBusy(true); _cancelPanoramaAi.IsEnabled = true;
-            _panoramaAiInfo.Text = "Propondo reparo local. Uma nova chamada paga em qualidade Alta; resultado sera candidato, sem aplicacao automatica.";
+            _panoramaAiInfo.Text = "Propondo reparo local. Uma nova chamada paga em qualidade Alta; resultado será candidato, sem aplicação automática.";
             _status.Text = _panoramaAiInfo.Text;
             using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
@@ -132,17 +131,17 @@ internal sealed partial class PrintWindow
             catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { throw new ImageProviderException("Tempo esgotado. A API pode cobrar; confira o uso antes de tentar novamente."); }
             if (_closed || cancellation.IsCancellationRequested) return;
             var edited = DecodeSeamPng(result.Png);
-            if (edited.PixelWidth != w || edited.PixelHeight != h) throw new ImageProviderException("Dimensoes do reparo incorretas.");
+            if (edited.PixelWidth != w || edited.PixelHeight != h) throw new ImageProviderException("Dimensões do reparo incorretas.");
             byte[] limited = PanoramaSeamMath.LimitToBand(shifted, SeamPixels(edited), w, h);
             _seamCandidateImage = SeamBitmap(PanoramaSeamMath.RotateHalf(limited, w, h), w, h);
             _seamCandidatePng = EncodeSeamPng(_seamCandidateImage);
             _pendingSeam = new SeamEvidence(DateTimeOffset.Now, prompt, beforePng, requestPng, maskPng, result.Png);
-            _panoramaAiInfo.Text = "Candidato recebido; render anterior mantido. Compare teto, piso, paredes e as bordas da faixa. Aplique somente se estiver correto; caso contrario, descarte.";
+            _panoramaAiInfo.Text = "Candidato recebido; render anterior mantido. Compare teto, piso, paredes e as bordas da faixa. Aplique somente se estiver correto; caso contrário, descarte.";
         }
-        catch (OperationCanceledException) { if (!_closed) _panoramaAiInfo.Text = "Espera cancelada. Render anterior mantido; solicitacao recebida pode ser cobrada."; }
+        catch (OperationCanceledException) { if (!_closed) _panoramaAiInfo.Text = "Espera cancelada. Render anterior mantido; solicitação recebida pode ser cobrada."; }
         catch (ImageProviderException error) { if (!_closed) _panoramaAiInfo.Text = error.Message; }
         catch (ArgumentException error) { if (!_closed) _panoramaAiInfo.Text = error.Message; }
-        catch { if (!_closed) _panoramaAiInfo.Text = "Reparo nao concluido. Render anterior mantido. Sem repeticao automatica; confira o uso da API antes de reenviar."; }
+        catch { if (!_closed) _panoramaAiInfo.Text = "Reparo não concluído. Render anterior mantido. Sem repetição automática; confira o uso da API antes de reenviar."; }
         finally
         {
             if (!_closed) { SetBusy(false); if (_original is not null) RefreshPreview(); _cancelPanoramaAi.IsEnabled = false; _status.Text = _panoramaAiInfo.Text; }

@@ -32,14 +32,14 @@ internal sealed partial class PrintWindow
     private readonly ComboBox _panoramaAiSize = new() { Height = 32 };
     private readonly TextBlock _panoramaAiInfo = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _choosePanoramaAi = new() { Content = "Selecionar panorama original PNG", Height = 38 };
-    private readonly Button _showPanoramaAiPrompt = new() { Content = "Conferir prompt Panorama IA", Height = 38, IsEnabled = false };
+    private readonly Button _showPanoramaAiPrompt = new() { Content = "Abrir prompt Panorama IA", Height = 38, IsEnabled = false };
     private readonly Button _generatePanoramaAi = new() { Content = "Gerar Panorama IA (API paga)", Height = 42, IsEnabled = false };
     private readonly Button _cancelPanoramaAi = new() { Content = "Cancelar espera da IA", Height = 32, IsEnabled = false };
-    private readonly Button _viewPanoramaAiReference = new() { Content = "Ver referencia enviada em 360", Height = 38, IsEnabled = false };
+    private readonly Button _viewPanoramaAiReference = new() { Content = "Ver referência enviada em 360", Height = 38, IsEnabled = false };
     private readonly Button _viewPanoramaAiRender = new() { Content = "Ver render IA em 360", Height = 38, IsEnabled = false };
     private readonly Button _checkPanoramaAiSeam = new() { Content = "Conferir fechamento 360 do render", Height = 38, IsEnabled = false };
-    private readonly Button _savePanoramaAi = new() { Content = "Salvar geracao Panorama IA", Height = 38, IsEnabled = false };
-    private readonly Button _openPanoramaAiFolder = new() { Content = "Abrir pasta da geracao IA", Height = 38, IsEnabled = false };
+    private readonly Button _savePanoramaAi = new() { Content = "Salvar geração Panorama IA", Height = 38, IsEnabled = false };
+    private readonly Button _openPanoramaAiFolder = new() { Content = "Abrir pasta da geração IA", Height = 38, IsEnabled = false };
     private string? _panoramaAiSourcePath, _panoramaAiSavedFolder;
     private BitmapSource? _panoramaAiOriginal, _panoramaAiReference, _panoramaAiRender;
     private byte[]? _panoramaAiReferencePng, _panoramaAiRenderPng;
@@ -52,51 +52,52 @@ internal sealed partial class PrintWindow
     private UIElement CreatePanoramaAiPanel()
     {
         var panel = new StackPanel();
-        panel.Children.Add(Text("Panorama com IA v9.0.2 - experimental", 18, true));
-        panel.Children.Add(Text("Envia o panorama inteiro para uma edicao 360. A IA pode alterar arquitetura ou criar emendas: confira geometria, piso, teto e fechamento antes de usar. O original permanece preservado.", 12));
+        panel.Children.Add(CreateSectionTitle("Panorama com IA · experimental"));
         _panoramaAiSettings.Children.Add(_choosePanoramaAi);
-        _panoramaAiSettings.Children.Add(Text("Perfil de iluminacao"));
+        _panoramaAiSettings.Children.Add(Text("Perfil de iluminação"));
         _panoramaAiProfile.Items.Add("Bump Dia"); _panoramaAiProfile.Items.Add("Bump Noite");
         _panoramaAiProfile.SelectedIndex = 0; _panoramaAiSettings.Children.Add(_panoramaAiProfile);
-        _panoramaAiSettings.Children.Add(Text("Resolucao nativa do render IA"));
+        _panoramaAiSettings.Children.Add(Text("Resolução nativa do render IA"));
         _panoramaAiSize.Items.Add("Primeiro teste: 1536 x 768");
         _panoramaAiSize.Items.Add("Maior: 2048 x 1024");
         _panoramaAiSize.SelectedIndex = 1; _panoramaAiSettings.Children.Add(_panoramaAiSize);
         _panoramaAiSettings.Children.Add(Text("Qualidade da IA"));
-        foreach (string name in new[] { "Baixa - primeiro teste", "Media", "Alta" }) _panoramaAiQuality.Items.Add(name);
+        foreach (string name in new[] { "Baixa - primeiro teste", "Média", "Alta" }) _panoramaAiQuality.Items.Add(name);
         _panoramaAiQuality.SelectedIndex = 2; _panoramaAiSettings.Children.Add(_panoramaAiQuality);
-        _panoramaAiSettings.Children.Add(Text("Fidelidade Maxima: pede preservar materiais, elementos e projecao. O render e menor que a captura 8K; comparar com a referencia reduzida. Nao ha ampliacao artificial para 8K.", 12));
-        _panoramaAiSettings.Children.Add(Text("Padrao: 2048 x 1024, qualidade Alta. Pode custar mais que Baixa; confira suas escolhas antes de gerar. Em 90 graus, esta saida oferece 512 pixels horizontais, nao detalhe 8K.", 12));
         _panoramaAiSettings.Children.Add(_loadPanoramaMaterials);
         _panoramaAiSettings.Children.Add(_panoramaMaterialInfo);
-        _panoramaAiSettings.Children.Add(Text("Descreva os materiais e onde aparecem (opcional, ate 2000 caracteres). Uma linha por superficie: porta ao lado do sofa => madeira carvalho fosca. Use apenas acabamentos conhecidos.", 12));
+        _panoramaAiSettings.Children.Add(Text("Materiais e localização (opcional)"));
+        _panoramaMaterialDescriptions.ToolTip = "Até 2000 caracteres. Ex.: porta ao lado do sofá => carvalho fosco. Informe apenas acabamentos conhecidos.";
         _panoramaAiSettings.Children.Add(_panoramaMaterialDescriptions);
         _panoramaAiSettings.Children.Add(_showPanoramaAiPrompt);
         _panoramaAiSettings.Children.Add(Text("Chave API OpenAI - Panorama"));
         _panoramaAiSettings.Children.Add(_panoramaAiKey);
-        _panoramaAiSettings.Children.Add(Text("A chave fica nesta sessao e e apagada ao fechar o painel. Nao e salva nos arquivos. Gerar envia a referencia e o prompt para a API paga OpenAI. Uma chamada por clique; sem repeticao automatica.", 12));
         _panoramaAiSettings.Children.Add(_generatePanoramaAi);
         panel.Children.Add(_panoramaAiSettings); panel.Children.Add(_cancelPanoramaAi);
-        panel.Children.Add(Text("Cancelar interrompe a espera; uma solicitacao ja recebida pela API pode continuar e ser cobrada.", 12));
+        _cancelPanoramaAi.ToolTip = "Cancelar interrompe a espera; a API pode continuar e cobrar a solicitação recebida.";
         panel.Children.Add(_viewPanoramaAiReference); panel.Children.Add(_viewPanoramaAiRender);
         panel.Children.Add(_checkPanoramaAiSeam); panel.Children.Add(_savePanoramaAi);
-        panel.Children.Add(CreatePanoramaSeamPanel());
+        panel.Children.Add(new Expander
+        {
+            Header = "Reparo da emenda · experimental", Margin = new Thickness(0, 12, 0, 8),
+            Content = CreatePanoramaSeamPanel()
+        });
         panel.Children.Add(_openPanoramaAiFolder); panel.Children.Add(_panoramaAiInfo);
         _loadPanoramaMaterials.Click += (_, _) => LoadPanoramaMaterialMetadata();
         _choosePanoramaAi.Click += (_, _) => ChoosePanoramaAiSource();
         _showPanoramaAiPrompt.Click += (_, _) => ShowPanoramaAiPrompt();
         _generatePanoramaAi.Click += async (_, _) => await GeneratePanoramaAiAsync();
         _cancelPanoramaAi.Click += (_, _) => { _panoramaAiCancellation?.Cancel(); _cancelPanoramaAi.IsEnabled = false; };
-        _viewPanoramaAiReference.Click += (_, _) => OpenPanoramaAiViewer(_panoramaAiReference, "Referencia enviada a IA", false);
+        _viewPanoramaAiReference.Click += (_, _) => OpenPanoramaAiViewer(_panoramaAiReference, "Referência enviada à IA", false);
         _viewPanoramaAiRender.Click += (_, _) => OpenPanoramaAiViewer(_panoramaAiRender, "Render Panorama IA - conferir fidelidade", false);
         _checkPanoramaAiSeam.Click += (_, _) => OpenPanoramaAiViewer(_panoramaAiRender, "Fechamento do render IA - conferir continuidade", true);
         _savePanoramaAi.Click += (_, _) => SavePanoramaAiGeneration();
         _openPanoramaAiFolder.Click += (_, _) => {
             if (_busy || _panoramaAiSavedFolder is null) return;
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_panoramaAiSavedFolder) { UseShellExecute = true }); }
-            catch { _panoramaAiInfo.Text = "Nao foi possivel abrir a pasta da geracao IA."; }
+            catch { _panoramaAiInfo.Text = "Não foi possível abrir a pasta da geração IA."; }
         };
-        _panoramaAiInfo.Text = "Selecione um panorama original PNG 2:1. Confira materiais, resolucao e custo antes de gerar.";
+        _panoramaAiInfo.Text = "Selecione um panorama original PNG 2:1.";
         UpdatePanoramaMaterialInfo();
         return panel;
     }
@@ -110,16 +111,16 @@ internal sealed partial class PrintWindow
         {
             BitmapSource image = ImagePipeline.Load(dialog.FileName);
             if (image.PixelWidth != 2L * image.PixelHeight || image.PixelWidth < 512 || image.PixelWidth > 8192)
-                throw new ArgumentException("Selecione um panorama 2:1 de ate 8192 pixels de largura.");
+                throw new ArgumentException("Selecione um panorama 2:1 de até 8192 pixels de largura.");
             ClearPanoramaAiResult();
             _panoramaLoadedSnapshots = null; _panoramaMaterialDescriptions.Clear();
             _panoramaAiOriginal = image; _panoramaAiSourcePath = Path.GetFullPath(dialog.FileName);
             UpdatePanoramaMaterialInfo();
             SetPanoramaAiBusy(false);
             _panoramaAiInfo.Text = $"Original: {image.PixelWidth} x {image.PixelHeight} px.\n" + Path.GetFileName(dialog.FileName) +
-                "\nA geracao sera separada; confira o prompt antes de enviar.";
+                "\nA geração será separada; confira o prompt antes de enviar.";
         }
-        catch (Exception) { _panoramaAiInfo.Text = "Nao foi possivel abrir um panorama original PNG 2:1 valido. A selecao anterior foi mantida."; }
+        catch (Exception) { _panoramaAiInfo.Text = "Não foi possível abrir um panorama original PNG 2:1 válido. A seleção anterior foi mantida."; }
     }
     private (int Width, int Height, string Quality, RenderProfile Profile) ReadPanoramaAiSettings()
     {
@@ -142,8 +143,8 @@ internal sealed partial class PrintWindow
         int count = snapshots?.Where(v => v is not null).SelectMany(v => v.Materials ?? [])
             .Where(v => v is not null).Select(v => (v.Name, v.MaterialClass, v.ColorRgb)).Distinct().Count() ?? 0;
         _panoramaMaterialInfo.Text = snapshots is { Length: > 0 }
-            ? $"BIM: {count} materiais candidatos. Nomes e cores nao confirmam textura nem correspondencia por superficie."
-            : "BIM indisponivel. A IA usara a imagem e as descricoes preenchidas; os materiais nao estao confirmados automaticamente.";
+            ? $"BIM: {count} materiais candidatos."
+            : "BIM indisponível. Use as descrições de materiais.";
     }
     private void LoadPanoramaMaterialMetadata()
     {
@@ -159,13 +160,13 @@ internal sealed partial class PrintWindow
                 data.Faces.Any(f => f is null || !f.Validated || !names.Contains(f.Name) ||
                     f.Width != f.Height || f.Width * 4L != _panoramaAiOriginal.PixelWidth) ||
                 data.Faces.Select(f => f.Name).Distinct().Count() != 6)
-                throw new IOException("Metadados de captura incompativeis.");
+                throw new IOException("Metadados de captura incompatíveis.");
             var snapshots = data.Faces.Where(f => f.Bim is not null).Select(f => f.Bim!).ToArray();
             if (snapshots.Length == 0) throw new IOException("Sem dados BIM.");
             _panoramaLoadedSnapshots = snapshots; UpdatePanoramaMaterialInfo();
-            _panoramaAiInfo.Text = "Candidatos carregados de panorama.json da mesma pasta. Confirme que este PNG pertence a essa captura. Metadados nao identificam o material de cada pixel.";
+            _panoramaAiInfo.Text = "Candidatos carregados de panorama.json da mesma pasta. Confirme que este PNG pertence a essa captura. Metadados não identificam o material de cada pixel.";
         }
-        catch { _panoramaAiInfo.Text = "Nao foi possivel carregar dados BIM compativeis desta pasta. Os dados anteriores foram mantidos. Use as descricoes de materiais e confira o prompt."; }
+        catch { _panoramaAiInfo.Text = "Não foi possível carregar dados BIM compatíveis desta pasta. Os dados anteriores foram mantidos. Use as descrições de materiais e confira o prompt."; }
     }
     private string PanoramaAiPrompt(int width, int height, RenderProfile profile, BimSceneSnapshot[]? snapshots)
     {
@@ -178,10 +179,10 @@ internal sealed partial class PrintWindow
         try
         {
             var settings = ReadPanoramaAiSettings();
-            ShowText("Prompt Panorama IA", "Contrato 360 experimental. Conferir o prompt nao envia imagens nem chama a API.",
+            ShowText("Prompt Panorama IA", "Contrato 360 experimental. Conferir o prompt não envia imagens nem chama a API.",
                 PanoramaAiPrompt(settings.Width, settings.Height, settings.Profile, PanoramaAiSnapshots()));
         }
-        catch { _panoramaAiInfo.Text = "Nao foi possivel preparar o prompt. Confira os arquivos de regras da instalacao."; }
+        catch { _panoramaAiInfo.Text = "Não foi possível preparar o prompt. Confira os arquivos de regras da instalação."; }
     }
     private async Task GeneratePanoramaAiAsync()
     {
@@ -191,7 +192,7 @@ internal sealed partial class PrintWindow
         {
             var settings = ReadPanoramaAiSettings();
             string key = _panoramaAiKey.Password.Trim();
-            if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Insira a chave API no campo protegido do Panorama. Nao envie a chave pelo chat.");
+            if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Insira a chave API no campo protegido do Panorama. Não envie a chave pelo chat.");
             var snapshots = PanoramaAiSnapshots();
             string materialDescriptions = _panoramaMaterialDescriptions.Text.Trim();
             UpdatePanoramaMaterialInfo();
@@ -205,7 +206,7 @@ internal sealed partial class PrintWindow
             string sourcePath = _panoramaAiSourcePath;
             cancellation = new CancellationTokenSource(); _panoramaAiCancellation = cancellation;
             SetBusy(true); _cancelPanoramaAi.IsEnabled = true;
-            _panoramaAiInfo.Text = $"Gerando Panorama IA {settings.Width} x {settings.Height}. Solicitacao paga, sem repeticao automatica.";
+            _panoramaAiInfo.Text = $"Gerando Panorama IA {settings.Width} x {settings.Height}. Solicitação paga, sem repetição automática.";
             _status.Text = _panoramaAiInfo.Text;
             using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
@@ -219,21 +220,21 @@ internal sealed partial class PrintWindow
             var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
             image.StreamSource = bytes; image.EndInit(); image.Freeze();
             if (image.PixelWidth != settings.Width || image.PixelHeight != settings.Height || image.PixelWidth != image.PixelHeight * 2)
-                throw new ImageProviderException("O resultado nao respeita as dimensoes 2:1 solicitadas. O original foi preservado.");
+                throw new ImageProviderException("O resultado não respeita as dimensões 2:1 solicitadas. O original foi preservado.");
             ClearPanoramaSeamState();
             _panoramaAiReference = reference; _panoramaAiReferencePng = request.Png;
             _panoramaAiRender = image; _panoramaAiRenderPng = result.Png; _panoramaAiSavedFolder = null;
             _panoramaAiGeneration = new PanoramaAiGeneration(DateTimeOffset.Now, sourcePath, sourceWidth, sourceHeight,
                 settings.Width, settings.Height, settings.Profile.ToString(), settings.Quality, OpenAiImageProvider.Model, prompt, snapshots, materialDescriptions);
             _panoramaAiInfo.Text = $"Render recebido: {result.Width} x {result.Height} px, qualidade {settings.Quality}.\n" +
-                "Nao foi salvo automaticamente. Compare com a referencia enviada e confira arquitetura, polos e fechamento. Continuidade visual ainda nao validada.";
+                "Não foi salvo automaticamente. Compare com a referência enviada e confira arquitetura, polos e fechamento. Continuidade visual ainda não validada.";
             _status.Text = "Panorama IA recebido. Confira em 360 antes de salvar ou usar.";
         }
-        catch (OperationCanceledException) { if (!_closed) _panoramaAiInfo.Text = "Espera cancelada. O original foi preservado; a API pode cobrar a solicitacao ja recebida."; }
+        catch (OperationCanceledException) { if (!_closed) _panoramaAiInfo.Text = "Espera cancelada. O original foi preservado; a API pode cobrar a solicitação já recebida."; }
         catch (ImageProviderException error) { if (!_closed) _panoramaAiInfo.Text = error.Message; }
         catch (ArgumentException error) { if (!_closed) _panoramaAiInfo.Text = error.Message; }
-        catch (HttpRequestException) { if (!_closed) _panoramaAiInfo.Text = "Falha de conexao. Sem repeticao automatica; confira o uso da API antes de tentar novamente."; }
-        catch (Exception) { if (!_closed) _panoramaAiInfo.Text = "Nao foi possivel preparar ou ler o panorama IA. O original e o resultado anterior foram preservados."; }
+        catch (HttpRequestException) { if (!_closed) _panoramaAiInfo.Text = "Falha de conexão. Sem repetição automática; confira o uso da API antes de tentar novamente."; }
+        catch (Exception) { if (!_closed) _panoramaAiInfo.Text = "Não foi possível preparar ou ler o panorama IA. O original e o resultado anterior foram preservados."; }
         finally
         {
             if (!_closed)
@@ -254,7 +255,7 @@ internal sealed partial class PrintWindow
             if (seam) viewer.LookAtLongitude(180);
             viewer.Show();
         }
-        catch { _panoramaAiInfo.Text = "Nao foi possivel abrir o visualizador. O resultado continua no painel."; }
+        catch { _panoramaAiInfo.Text = "Não foi possível abrir o visualizador. O resultado continua no painel."; }
     }
     private void SavePanoramaAiGeneration()
     {
@@ -289,12 +290,12 @@ internal sealed partial class PrintWindow
                     throw new IOException("Falha ao validar a imagem salva.");
             }
             Directory.Move(pending, destination); _panoramaAiSavedFolder = destination;
-            SetPanoramaAiBusy(false); _panoramaAiInfo.Text = "Geracao salva separadamente: referencia, render, prompt e configuracoes.\n" + destination;
+            SetPanoramaAiBusy(false); _panoramaAiInfo.Text = "Geração salva separadamente: referência, render, prompt e configurações.\n" + destination;
         }
         catch
         {
             try { if (Directory.Exists(pending)) Directory.Delete(pending, true); } catch { }
-            _panoramaAiInfo.Text = "Nao foi possivel salvar. O render continua na memoria desta janela; tente novamente antes de fechar.";
+            _panoramaAiInfo.Text = "Não foi possível salvar. O render continua na memória desta janela; tente novamente antes de fechar.";
         }
     }
     private void SetPanoramaAiBusy(bool busy)

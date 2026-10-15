@@ -44,7 +44,7 @@ internal sealed partial class PrintWindow : Window
     private readonly TextBox _width = new() { Text = "1920" };
     private readonly TextBox _height = new() { Text = "1080" };
     private readonly Button _capture = new() { Content = "Capturar vista 3D", Height = 42 };
-    private readonly Button _prepareButton = new() { Content = "Preparar vista limpa (copia 3D)", Height = 38 };
+    private readonly Button _prepareButton = new() { Content = "Preparar vista limpa (cópia 3D)", Height = 38 };
     private readonly Button _guideButton = new() { Content = "Mostrar moldura no Revit", Height = 38 };
     private readonly Button _save = new() { Content = "Salvar captura PNG", Height = 38, IsEnabled = false };
     private readonly ComboBox _profile = new() { Height = 32 };
@@ -68,22 +68,23 @@ internal sealed partial class PrintWindow : Window
     private int _lastRenderWidth;
     private int _lastRenderHeight;
     private bool _currentRenderSavedToHistory;
-    private readonly Button _saveReference = new() { Content = "Salvar referencia enviada a IA", Height = 38, IsEnabled = false };
-    private readonly Button _saveToHistory = new() { Content = "Salvar no historico", Height = 38, IsEnabled = false };
-    private readonly Button _history = new() { Content = "Historico local", Height = 38 };
-    private readonly Button _openHistoryFolder = new() { Content = "Abrir pasta do historico", Height = 38 };
+    private readonly Button _saveReference = new() { Content = "Salvar referência enviada à IA", Height = 38, IsEnabled = false };
+    private readonly Button _saveToHistory = new() { Content = "Salvar no histórico", Height = 38, IsEnabled = false };
+    private readonly Button _history = new() { Content = "Abrir histórico", Height = 38 };
+    private readonly Button _openHistoryFolder = new() { Content = "Abrir pasta do histórico", Height = 38 };
     private bool _closed;
     private BimSceneSnapshot? _bim;
     private readonly TextBlock _bimSummary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Button _showBim = new() { Content = "Visualizar dados BIM da captura", Height = 38, IsEnabled = false };
     private readonly Button _confirmMaterials = new() { Content = "Confirmar materiais", Height = 38, IsEnabled = false };
     private readonly Dictionary<string, string> _materialConfirmations = new(StringComparer.Ordinal);
-    private readonly Button _showPrompt = new() { Content = "Visualizar prompt de render", Height = 38, IsEnabled = false };
+    private readonly Button _showPrompt = new() { Content = "Abrir prompt de render", Height = 38, IsEnabled = false };
     private readonly StackPanel _renderControls = new();
     private readonly Image _preview = new() { Stretch = Stretch.Uniform };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _dimensions = new() { TextWrapping = TextWrapping.Wrap };
     private readonly StackPanel _settings = new();
+    private readonly StackPanel _customDimensions = new();
     private readonly ComboBox _frameMode = new();
     private readonly Slider _horizontal = new() { Minimum = 0, Maximum = 100, Value = 50 };
     private readonly Slider _vertical = new() { Minimum = 0, Maximum = 100, Value = 50 };
@@ -99,7 +100,7 @@ internal sealed partial class PrintWindow : Window
     private readonly (string Label, int Width, int Height)[] _formats =
     [
         ("Quadrado - 1:1", 1, 1), ("Vertical - 4:5", 4, 5),
-        ("Fotografico - 3:2", 3, 2), ("Widescreen - 16:9", 16, 9),
+        ("Fotográfico - 3:2", 3, 2), ("Widescreen - 16:9", 16, 9),
         ("Story - 9:16", 9, 16), ("Cinema - 21:9", 21, 9),
         ("Personalizado", 0, 0)
     ];
@@ -121,28 +122,33 @@ internal sealed partial class PrintWindow : Window
 
     internal PrintWindow()
     {
-        Title = "Arqyzeng BIM v9.0.2 - Panorama IA experimental | Print v7.5.2";
+        Title = "Arqyzeng BIM";
         Width = 1080; Height = 700; MinWidth = 760; MinHeight = 540;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = new SolidColorBrush(Color.FromRgb(244, 246, 248));
+        ApplyWindowTheme(this);
         var root = new DockPanel { Margin = new Thickness(18) };
         var heading = new TextBlock
         {
-            Text = "ARQYZENG BIM", FontSize = 24, FontWeight = FontWeights.Bold,
+            Text = "Arqyzeng BIM", FontSize = 26, FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 16)
         };
         DockPanel.SetDock(heading, Dock.Top); root.Children.Add(heading);
         var footer = new Border
         {
-            Background = Brushes.White, Padding = new Thickness(10),
+            Background = Brushes.White, Padding = new Thickness(12),
+            BorderBrush = LineBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4),
             Margin = new Thickness(0, 12, 0, 0), MinHeight = 54, Child = _status
         };
+        _status.FontSize = 12;
         DockPanel.SetDock(footer, Dock.Bottom); root.Children.Add(footer);
         var tabs = new TabControl();
         tabs.Items.Add(new TabItem { Header = "Print", Content = CreatePrint() });
         tabs.Items.Add(new TabItem { Header = "Panorama", Content = CreatePanorama() });
-        tabs.Items.Add(new TabItem { Header = "Documentacao", Content = Placeholder("Documentacao BIM", "Em desenvolvimento. A criacao de vistas sera uma etapa posterior.") });
+        tabs.Items.Add(new TabItem { Header = "Documentação", Content = Placeholder("Documentação BIM", "Em desenvolvimento. A criação de vistas será uma etapa posterior.") });
         root.Children.Add(tabs); Content = root;
+        foreach (var button in new[] { _capture, _generate, _capturePanorama, _generatePanoramaAi })
+            ApplyPrimaryButtonStyle(button);
+        ConfigureUiToolTips();
         _ratio.SelectionChanged += (_, _) => UpdateDimensions();
         _resolution.SelectionChanged += (_, _) => UpdateDimensions();
         _width.TextChanged += (_, _) => UpdateDimensions();
@@ -180,18 +186,14 @@ internal sealed partial class PrintWindow : Window
 
     private UIElement CreatePanorama()
     {
-        var grid = new Grid { Margin = new Thickness(16) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
+        var grid = CreateTabGrid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(360) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var controls = new StackPanel();
-        controls.Children.Add(Text("Panorama 360 - montagem 2:1", 20, true));
-        controls.Children.Add(Text("Abra uma camera em perspectiva dentro do ambiente. A posicao dessa camera sera o centro das seis capturas.", 13));
-        controls.Children.Add(Text("Teste inicial: quatro paredes, piso, teto, uma porta e uma janela. Evite posicionar a camera dentro de paredes ou moveis.", 13));
-        controls.Children.Add(Text("Serão exportadas frente, direita, tras, esquerda, cima e baixo. Cada face final usa 90 graus; a captura inclui margem extra para evitar bordas nas emendas. A resolucao escolhida define o tamanho das faces e do panorama final.", 13));
-        controls.Children.Add(Text("A captura duplica temporariamente a vista original e conserva seu estilo visual. Para texturas, prepare a origem em Realista. A caixa de corte e preservada, com o contorno oculto somente na copia de captura. Luz relativa a camera e adaptada para luz fixa, com aviso. Desative modos temporarios antes de capturar.", 12));
+        controls.Children.Add(CreateSectionTitle("Panorama 360"));
         controls.Children.Add(Text("Qualidade da captura"));
-        _panoramaResolution.Items.Add("Rapida: faces 1024 - panorama 4096 x 2048");
+        _panoramaResolution.Items.Add("Rápida: faces 1024 - panorama 4096 x 2048");
         _panoramaResolution.Items.Add("Alta: faces 2048 - panorama 8192 x 4096");
         _panoramaResolution.SelectionChanged += (_, _) =>
             _capturePanorama.Content = _panoramaResolution.SelectedIndex == 1
@@ -199,40 +201,37 @@ internal sealed partial class PrintWindow : Window
         _panoramaResolution.SelectedIndex = 0;
         controls.Children.Add(_panoramaResolution);
         controls.Children.Add(_panoramaFineDetails);
-        controls.Children.Add(Text("Detalhes finos captura o dobro da resolucao em cada eixo e reduz para o tamanho final. Pode melhorar linhas finas e texturas, com quatro vezes mais pixels brutos. A captura demora mais e usa mais memoria. Nao altera cores, iluminacao ou materiais.", 12));
-        controls.Children.Add(Text("Alta captura mais pixels diretamente do Revit. Usa mais memoria e demora mais; nao corrige luz, materiais ou emendas. Para capturas salvas, a montagem usa a resolucao das faces do arquivo selecionado.", 12));
         controls.Children.Add(_capturePanorama);
         controls.Children.Add(_openPanoramaFolder);
         controls.Children.Add(_showPanoramaBim);
         _showPanoramaBim.Click += (_, _) => ShowPanoramaBim();
-        controls.Children.Add(Text("Materiais BIM: nome, classe, cor grafica, transparencia e categorias por face. Sao candidatos da vista; nao identificacao por pixel, especie de madeira ou leitura do arquivo de textura. A consulta fica salva em panorama.json. Capturas antigas precisam ser refeitas para obter esses dados.", 12));
         controls.Children.Add(_buildPanorama);
         controls.Children.Add(_viewPanorama);
         _viewPanorama.Click += (_, _) => OpenPanoramaViewer();
         controls.Children.Add(_cancelPanorama);
         _buildPanorama.Click += async (_, _) => await BuildPanoramaAsync();
         _cancelPanorama.Click += (_, _) => { _panoramaCancellation?.Cancel(); _cancelPanorama.IsEnabled = false; };
-        controls.Children.Add(Text("Monte um panorama 4096 x 2048 ou 8192 x 4096, conforme as faces, a partir de panorama.json de uma captura validada. O PNG e salvo junto das faces. Use Visualizar panorama 360 para olhar ao redor com o mouse. Tambem abre um PNG 2:1 ja salvo. Esta montagem conserva a captura original; a edicao com IA e opcional no painel abaixo.", 12));
         controls.Children.Add(_panoramaInfo);
         controls.Children.Add(CreatePanoramaAiPanel());
-        grid.Children.Add(new ScrollViewer { Content = controls, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        grid.Children.Add(new ScrollViewer { Content = CreateCard(controls), HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         var preview = new DockPanel();
         var label = Text("Conferir as seis faces", 16, true);
         DockPanel.SetDock(label, Dock.Top); preview.Children.Add(label);
         DockPanel.SetDock(_panoramaFace, Dock.Top); preview.Children.Add(_panoramaFace);
         preview.Children.Add(new Border { Background = Brushes.White, BorderBrush = Brushes.LightGray,
             BorderThickness = new Thickness(1), Padding = new Thickness(6), Child = _panoramaPreview });
-        Grid.SetColumn(preview, 2); grid.Children.Add(preview);
+        var previewCard = CreateCard(preview);
+        Grid.SetColumn(previewCard, 2); grid.Children.Add(previewCard);
         _capturePanorama.Click += (_, _) =>
         {
             if (_busy) return;
             try
             {
-                if (PanoramaRequested is null) throw new InvalidOperationException("O painel nao esta conectado ao Revit.");
+                if (PanoramaRequested is null) throw new InvalidOperationException("O painel não está conectado ao Revit.");
                 SetBusy(true);
                 _panoramaInfo.Text = _panoramaFineDetails.IsChecked == true
-                    ? "Capturando seis direcoes com amostragem 2x para detalhes finos. A exportacao pode demorar mais; aguarde o Revit concluir."
-                    : "Capturando seis direcoes e medindo o campo de visao. Aguarde o Revit concluir.";
+                    ? "Capturando seis direções com amostragem 2x para detalhes finos. A exportação pode demorar mais; aguarde o Revit concluir."
+                    : "Capturando seis direções e medindo o campo de visão. Aguarde o Revit concluir.";
                 _status.Text = _panoramaInfo.Text;
                 PanoramaRequested.Invoke(_panoramaResolution.SelectedIndex == 1 ? 2048 : 1024,
                     _panoramaFineDetails.IsChecked == true ? 2 : 1);
@@ -244,9 +243,9 @@ internal sealed partial class PrintWindow : Window
         {
             if (_panoramaResult is null) return;
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_panoramaResult.Folder) { UseShellExecute = true }); }
-            catch (Exception exception) { _panoramaInfo.Text = "Nao foi possivel abrir a pasta: " + exception.Message; }
+            catch (Exception exception) { _panoramaInfo.Text = "Não foi possível abrir a pasta: " + exception.Message; }
         };
-        _panoramaInfo.Text = "Nenhuma captura Panorama nesta sessao.";
+        _panoramaInfo.Text = "Nenhuma captura Panorama nesta sessão.";
         return grid;
     }
 
@@ -264,8 +263,8 @@ internal sealed partial class PrintWindow : Window
         _showPanoramaBim.IsEnabled = true;
         _panoramaFace.SelectedIndex = 0;
         _status.Text = result.Validated
-            ? "Panorama: seis faces salvas; camera, dimensoes e FOV passaram na verificacao numerica. Confira visualmente as bordas."
-            : "Panorama: seis imagens diagnosticas salvas. Ha medidas fora do alvo; ainda nao sao um cubemap validado. Abra a pasta e envie panorama.json.";
+            ? "Panorama: seis faces salvas; câmera, dimensões e FOV passaram na verificação numérica. Confira visualmente as bordas."
+            : "Panorama: seis imagens diagnósticas salvas. Há medidas fora do alvo; ainda não são um cubemap validado. Abra a pasta e envie panorama.json.";
         if (!string.IsNullOrWhiteSpace(result.AppearanceNote)) _status.Text += "\n" + result.AppearanceNote;
         _panoramaInfo.Text = _status.Text + "\n\nVista: " + result.SourceView + "\nPasta: " + result.Folder;
     }
@@ -275,7 +274,7 @@ internal sealed partial class PrintWindow : Window
         if (_closed) return;
         SetBusy(false);
         if (_original is not null) RefreshPreview();
-        _panoramaInfo.Text = "Nao foi possivel capturar Panorama: " + message;
+        _panoramaInfo.Text = "Não foi possível capturar Panorama: " + message;
         _status.Text = _panoramaInfo.Text;
     }
 
@@ -284,15 +283,15 @@ internal sealed partial class PrintWindow : Window
         if (_busy || _panoramaResult is null) return;
         var text = new System.Text.StringBuilder();
         text.AppendLine("MATERIAIS BIM DO PANORAMA - " + _panoramaResult.SourceView);
-        text.AppendLine("Consulta independente por orientacao da camera. Um mesmo elemento/material pode aparecer em varias faces. Nao some as contagens; nao ha associacao com pixels nem garantia de visibilidade.");
-        text.AppendLine("Nome e classe sao informacoes cadastradas. Dados genericos nao confirmam madeira, especie, acabamento ou fabricante. A cor grafica pode diferir da textura e da iluminacao da imagem. Assets e arquivos de textura nao foram analisados.");
+        text.AppendLine("Consulta independente por orientação da câmera. Um mesmo elemento/material pode aparecer em várias faces. Não some as contagens; não há associação com pixels nem garantia de visibilidade.");
+        text.AppendLine("Nome e classe são informações cadastradas. Dados genéricos não confirmam madeira, espécie, acabamento ou fabricante. A cor gráfica pode diferir da textura e da iluminação da imagem. Assets e arquivos de textura não foram analisados.");
         foreach (var face in _panoramaResult.Faces)
         {
             text.AppendLine();
             text.AppendLine("FACE: " + face.Name);
             text.AppendLine(BimContextFormatter.Format(face.Bim));
         }
-        ShowText("Materiais BIM do Panorama", "Dados salvos no instante da captura. Capture novamente depois de mudar o modelo. Esta consulta nao altera os materiais nem gera render com IA.", text.ToString());
+        ShowText("Materiais BIM do Panorama", "Dados salvos no instante da captura. Capture novamente depois de mudar o modelo. Esta consulta não altera os materiais nem gera render com IA.", text.ToString());
     }
 
     private void OpenPanoramaViewer()
@@ -314,7 +313,7 @@ internal sealed partial class PrintWindow : Window
         }
         catch (Exception exception)
         {
-            _status.Text = "Nao foi possivel abrir o viewer 360: " + exception.Message;
+            _status.Text = "Não foi possível abrir o viewer 360: " + exception.Message;
         }
     }
 
@@ -329,7 +328,7 @@ internal sealed partial class PrintWindow : Window
         try
         {
             SetBusy(true); _cancelPanorama.IsEnabled = true;
-            _status.Text = "Montando panorama na resolucao das faces salvas. Aguarde; o Revit pode continuar aberto.";
+            _status.Text = "Montando panorama na resolução das faces salvas. Aguarde; o Revit pode continuar aberto.";
             _panoramaInfo.Text = _status.Text;
             var result = await Task.Run(() => PanoramaProjectionService.Build(dialog.FileName, cancellation.Token), cancellation.Token);
             if (_closed) return;
@@ -362,101 +361,111 @@ internal sealed partial class PrintWindow : Window
             if (_panoramaFace.SelectedIndex == _panoramaResult.Faces.Length && _panoramaProjectionPath is not null)
             {
                 _panoramaPreview.Source = ImagePipeline.Load(_panoramaProjectionPath);
-                _panoramaInfo.Text = "Panorama equiretangular 2:1 (360 x 180 graus). Frente no centro; a direcao de tras fecha nas duas bordas.\n\n" + _panoramaProjectionPath;
+                _panoramaInfo.Text = "Panorama equiretangular 2:1 (360 x 180 graus). Frente no centro; a direção de trás fecha nas duas bordas.\n\n" + _panoramaProjectionPath;
                 return;
             }
             var face = _panoramaResult.Faces[_panoramaFace.SelectedIndex];
             _panoramaPreview.Source = ImagePipeline.Load(face.Path);
             _panoramaInfo.Text = $"{face.Name}: {face.Width} x {face.Height} px\nFOV horizontal: {face.HorizontalFov:F4} graus\nFOV vertical: {face.VerticalFov:F4} graus\n" +
-                (face.Validated ? "Verificacao numerica aprovada." : "Medidas fora do alvo: face apenas diagnostica.") +
+                (face.Validated ? "Verificação numérica aprovada." : "Medidas fora do alvo: face apenas diagnóstica.") +
                 (face.RasterNormalized ? $"\nRaster bruto: {face.RawWidth} x {face.RawHeight}; convertido para a face final de 90 graus." : "") + "\n\n" + _panoramaResult.Folder;
         }
-        catch (Exception exception) { _panoramaInfo.Text = "Nao foi possivel abrir a face: " + exception.Message; }
+        catch (Exception exception) { _panoramaInfo.Text = "Não foi possível abrir a face: " + exception.Message; }
     }
 
     private UIElement CreatePrint()
     {
-        var grid = new Grid { Margin = new Thickness(16) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        var grid = CreateTabGrid();
+        var settingsColumn = new ColumnDefinition { Width = new GridLength(520) };
+        var gapColumn = new ColumnDefinition { Width = new GridLength(40) };
+        var comparisonColumn = new ColumnDefinition { Width = new GridLength(0) };
+        grid.ColumnDefinitions.Add(settingsColumn);
+        grid.ColumnDefinitions.Add(gapColumn);
+        grid.ColumnDefinitions.Add(comparisonColumn);
+        var toggleComparison = CreateComparisonHandle();
+        Grid.SetColumn(toggleComparison, 1); grid.Children.Add(toggleComparison);
         var left = new StackPanel();
-        left.Children.Add(Text("Captura da vista ativa", 18, true));
+        left.Children.Add(CreateSectionTitle("Captura da vista ativa"));
         left.Children.Add(_prepareButton);
-        left.Children.Add(Text("Cria uma copia 3D sombreada, com fundo branco e anotacoes ocultas. A vista original e os materiais permanecem preservados.", 12));
         _settings.Children.Add(Text("Formato"));
         foreach (var format in _formats) _ratio.Items.Add(format.Label);
         _ratio.Height = 32; _settings.Children.Add(_ratio);
-        _settings.Children.Add(Text("Resolucao - lado maior"));
+        _settings.Children.Add(Text("Resolução — lado maior"));
         foreach (int value in new[] { 1024, 2048, 4096 }) _resolution.Items.Add(value);
         _resolution.Height = 32; _settings.Children.Add(_resolution);
-        _settings.Children.Add(Text("Largura personalizada (px)"));
-        _width.Height = 30; _settings.Children.Add(_width);
-        _settings.Children.Add(Text("Altura personalizada (px)"));
-        _height.Height = 30; _settings.Children.Add(_height);
+        _customDimensions.Children.Add(Text("Largura personalizada (px)"));
+        _width.Height = 30; _customDimensions.Children.Add(_width);
+        _customDimensions.Children.Add(Text("Altura personalizada (px)"));
+        _height.Height = 30; _customDimensions.Children.Add(_height);
+        _settings.Children.Add(_customDimensions);
         _dimensions.Margin = new Thickness(0, 12, 0, 6); _settings.Children.Add(_dimensions);
         _settings.Children.Add(Text("Enquadramento"));
         _frameMode.Items.Add("Encaixar imagem inteira");
         _frameMode.Items.Add("Preencher com recorte");
         _frameMode.Height = 32; _settings.Children.Add(_frameMode);
-        _cropControls.Children.Add(Text("Posicao horizontal: esquerda / direita", 12));
+        _cropControls.Children.Add(Text("Posição horizontal: esquerda / direita", 12));
         _cropControls.Children.Add(_horizontal);
-        _cropControls.Children.Add(Text("Posicao vertical: topo / base", 12));
+        _cropControls.Children.Add(Text("Posição vertical: topo / base", 12));
         _cropControls.Children.Add(_vertical);
-        _cropControls.Children.Add(Text("Ampliacao do recorte: 1x a 3x", 12));
+        _cropControls.Children.Add(Text("Ampliação do recorte: 1x a 3x", 12));
         _cropControls.Children.Add(_zoom);
         _cropControls.Children.Add(_adjustmentValues);
         var reset = new Button { Content = "Centralizar recorte e voltar a 1x", Margin = new Thickness(0, 8, 0, 0) };
         reset.Click += (_, _) => { _horizontal.Value = 50; _vertical.Value = 50; _zoom.Value = 1; };
         _cropControls.Children.Add(reset);
-        _settings.Children.Add(_cropControls);
-        _frameNote.Margin = new Thickness(0, 12, 0, 6); _settings.Children.Add(_frameNote);
+        // Keep the crop state for the capture pipeline, outside the visible layout.
         left.Children.Add(_settings);
-        left.Children.Add(Text("Capture novamente depois de mudar a vista, o zoom ou o modelo no Revit. Formato e recorte atualizam a previa localmente.", 12));
-        _guideButton.Margin = new Thickness(0, 12, 0, 8); left.Children.Add(_guideButton);
-        left.Children.Add(Text("A moldura cinza aparece sobre a vista do Revit e usa Preencher com recorte. Ajuste o modelo na area clara antes de capturar.", 12));
+        left.Children.Add(new Expander
+        {
+            Header = "Ferramentas da vista", Margin = new Thickness(0, 12, 0, 4),
+            Content = _guideButton
+        });
         _capture.Margin = new Thickness(0, 12, 0, 8); left.Children.Add(_capture);
         left.Children.Add(_save);
         _bimSummary.Text = "Capture uma vista para consultar os materiais e categorias BIM.";
-        left.Children.Add(_bimSummary);
+        _showBim.ToolTip = _bimSummary;
         _showBim.Margin = new Thickness(0, 8, 0, 0);
+        left.Children.Add(CreateSectionTitle("Materiais BIM"));
         left.Children.Add(_showBim);
         _confirmMaterials.Margin = new Thickness(0, 8, 0, 0);
         left.Children.Add(_confirmMaterials);
-        left.Children.Add(Text("As confirmacoes orientam a IA e nao alteram materiais no Revit nem garantem correspondencia exata por superficie.", 12));
-        _renderControls.Children.Add(Text("Preparar render com IA", 18, true));
+        _renderControls.Children.Add(CreateSectionTitle("Render com IA"));
         _renderControls.Children.Add(Text("Perfil"));
         _profile.Items.Add("Bump Dia");
         _profile.Items.Add("Bump Noite - Comercial Premium");
         _renderControls.Children.Add(_profile);
         _renderControls.Children.Add(Text("Fidelidade"));
-        foreach (string name in new[] { "Criativo", "Controlado", "Fidelidade Maxima" }) _fidelity.Items.Add(name);
+        foreach (string name in new[] { "Criativo", "Controlado", "Fidelidade máxima" }) _fidelity.Items.Add(name);
         _renderControls.Children.Add(_fidelity);
-        _renderControls.Children.Add(_renderNote);
-        _renderControls.Children.Add(Text("Gerar envia a captura enquadrada, os dados BIM e as instrucoes para a API OpenAI. A API cobra por uso. A imagem pode alterar detalhes: confira o resultado com o original.", 12));
+        _fidelity.ToolTip = _renderNote;
         _showPrompt.Margin = new Thickness(0, 10, 0, 0);
         _renderControls.Children.Add(_showPrompt);
         _renderControls.Children.Add(Text("Chave API OpenAI"));
         _renderControls.Children.Add(_apiKey);
-        _renderControls.Children.Add(Text("A chave fica apenas nesta janela e e apagada ao fechar. Nao envie sua chave pelo chat.", 12));
+        _apiKey.ToolTip = "A chave fica apenas nesta janela e é apagada ao fechar.";
         _renderControls.Children.Add(Text("Qualidade da IA"));
-        foreach (string quality in new[] { "Baixa - primeiro teste", "Media", "Alta" }) _quality.Items.Add(quality);
+        foreach (string quality in new[] { "Baixa - primeiro teste", "Média", "Alta" }) _quality.Items.Add(quality);
         _renderControls.Children.Add(_quality);
-        _renderControls.Children.Add(Text("Render IA: lado maior de 1536 px, dimensoes ajustadas a multiplos de 16. A captura mantem a resolucao escolhida.", 12));
         _renderControls.Children.Add(_generate);
         left.Children.Add(_renderControls);
         left.Children.Add(_cancel);
-        left.Children.Add(Text("Cancelar interrompe a espera; a API pode continuar e cobrar uma solicitacao ja recebida.", 12));
+        _cancel.ToolTip = "Cancelar interrompe a espera; a API pode continuar e cobrar a solicitação recebida.";
         left.Children.Add(_saveRender);
         left.Children.Add(_saveReference);
         _saveToHistory.Margin = new Thickness(0, 8, 0, 0);
         left.Children.Add(_saveToHistory);
         _history.Margin = new Thickness(0, 12, 0, 0);
+        left.Children.Add(CreateSectionTitle("Histórico"));
         left.Children.Add(_history);
         _openHistoryFolder.Margin = new Thickness(0, 8, 0, 0);
         left.Children.Add(_openHistoryFolder);
-        left.Children.Add(Text("O historico e opcional: uma geracao so e registrada quando voce clicar em Salvar no historico. A chave API nunca e salva.", 12));
-        var scroll = new ScrollViewer { Content = left, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var scroll = new ScrollViewer
+        {
+            Content = CreateCard(left), VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxWidth = 520, HorizontalAlignment = HorizontalAlignment.Left
+        };
+        scroll.HorizontalAlignment = HorizontalAlignment.Stretch;
         grid.Children.Add(scroll);
         var right = new DockPanel();
         var label = Text("Comparar captura e render", 16, true);
@@ -471,7 +480,17 @@ internal sealed partial class PrintWindow : Window
             Background = Brushes.White, BorderBrush = Brushes.LightGray,
             BorderThickness = new Thickness(1), Padding = new Thickness(6), Child = _preview
         });
-        Grid.SetColumn(right, 2); grid.Children.Add(right);
+        var comparisonCard = CreateCard(right);
+        comparisonCard.Visibility = Visibility.Collapsed;
+        Grid.SetColumn(comparisonCard, 2); grid.Children.Add(comparisonCard);
+        toggleComparison.Click += (_, _) =>
+        {
+            bool expanded = toggleComparison.IsChecked == true;
+            comparisonCard.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+            settingsColumn.Width = new GridLength(expanded ? 360 : 520);
+            comparisonColumn.Width = expanded ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+            scroll.MaxWidth = expanded ? 360 : 520;
+        };
         return grid;
     }
 
@@ -479,7 +498,7 @@ internal sealed partial class PrintWindow : Window
     {
         Text = value, FontSize = size, TextWrapping = TextWrapping.Wrap,
         FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
-        Margin = new Thickness(0, 10, 0, 6)
+        Margin = new Thickness(0, 12, 0, 8)
     };
 
     private static UIElement Placeholder(string title, string description)
@@ -497,7 +516,7 @@ internal sealed partial class PrintWindow : Window
         if (format.Width == 0)
         {
             if (!int.TryParse(_width.Text, out width) || !int.TryParse(_height.Text, out height))
-                throw new InvalidOperationException("Informe largura e altura como numeros inteiros.");
+                throw new InvalidOperationException("Informe largura e altura como números inteiros.");
         }
         else
         {
@@ -508,7 +527,7 @@ internal sealed partial class PrintWindow : Window
             { height = edge; width = (int)Math.Round((double)edge * format.Width / format.Height); }
         }
         if (width < 256 || height < 256 || width > 4096 || height > 4096)
-            throw new InvalidOperationException("Use dimensoes entre 256 e 4096 pixels.");
+            throw new InvalidOperationException("Use dimensões entre 256 e 4096 pixels.");
         return new CaptureSettings(width, height,
             _frameMode.SelectedIndex == 1 ? FrameMode.Crop : FrameMode.Fit,
             _horizontal.Value / 100, _vertical.Value / 100, _zoom.Value);
@@ -518,22 +537,23 @@ internal sealed partial class PrintWindow : Window
     {
         InvalidateRender();
         bool custom = _ratio.SelectedIndex == _formats.Length - 1;
+        _customDimensions.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
         _width.IsEnabled = custom; _height.IsEnabled = custom; _resolution.IsEnabled = !custom;
         bool crop = _frameMode.SelectedIndex == 1;
         _cropControls.IsEnabled = crop;
         _adjustmentValues.Text = $"Horizontal: {_horizontal.Value:F0}% | Vertical: {_vertical.Value:F0}% | Zoom: {_zoom.Value:F2}x";
         _frameNote.Text = crop
-            ? "Preenche o formato. Ajuste a posicao e a ampliacao para escolher a regiao visivel. Pode cortar elementos."
-            : "Preserva toda a imagem exportada e adiciona margens brancas quando necessario. Mantem os espacos vazios da vista original.";
+            ? "Preenche o formato. Ajuste a posição e a ampliação para escolher a região visível. Pode cortar elementos."
+            : "Preserva toda a imagem exportada e adiciona margens brancas quando necessário. Mantém os espaços vazios da vista original.";
         _previewTimer.Stop();
         try
         {
             CaptureSettings settings = ReadSettings();
-            _dimensions.Text = $"Saida: {settings.Width} x {settings.Height} pixels";
+            _dimensions.Text = $"Saída: {settings.Width} x {settings.Height} pixels";
             if (_original is not null && !_busy)
             {
                 _save.IsEnabled = false;
-                _status.Text = "Atualizando a previa do enquadramento...";
+                _status.Text = "Atualizando a prévia do enquadramento...";
                 _previewTimer.Start();
             }
         }
@@ -541,7 +561,7 @@ internal sealed partial class PrintWindow : Window
         {
             _dimensions.Text = exception.Message;
             _save.IsEnabled = false; _generate.IsEnabled = false;
-            if (_original is not null) _status.Text = "Ajuste as dimensoes para atualizar a previa e salvar.";
+            if (_original is not null) _status.Text = "Ajuste as dimensões para atualizar a prévia e salvar.";
         }
     }
 
@@ -550,11 +570,11 @@ internal sealed partial class PrintWindow : Window
         if (_busy) return;
         try
         {
-            if (PrepareRequested is null) throw new InvalidOperationException("O painel nao esta conectado ao Revit.");
+            if (PrepareRequested is null) throw new InvalidOperationException("O painel não está conectado ao Revit.");
             ClearMaterialConfirmations();
             InvalidateRender();
             SetBusy(true);
-            _status.Text = "Preparando uma nova vista 3D para captura. Aguarde a abertura da copia.";
+            _status.Text = "Preparando uma nova vista 3D para captura. Aguarde a abertura da cópia.";
             PrepareRequested.Invoke();
         }
         catch (Exception exception) { ReceiveFailure(exception.Message); }
@@ -579,7 +599,7 @@ internal sealed partial class PrintWindow : Window
         {
             _frameMode.SelectedIndex = 1;
             CaptureSettings settings = ReadSettings();
-            if (GuideRequested is null) throw new InvalidOperationException("O painel nao esta conectado ao Revit.");
+            if (GuideRequested is null) throw new InvalidOperationException("O painel não está conectado ao Revit.");
             _status.Text = "Abrindo a moldura na vista do Revit...";
             GuideRequested.Invoke(settings);
         }
@@ -592,7 +612,7 @@ internal sealed partial class PrintWindow : Window
         try
         {
             CaptureSettings settings = ReadSettings();
-            if (CaptureRequested is null) throw new InvalidOperationException("O painel nao esta conectado ao Revit.");
+            if (CaptureRequested is null) throw new InvalidOperationException("O painel não está conectado ao Revit.");
             SetBusy(true);
             _status.Text = "Captura e leitura BIM solicitadas. Aguarde o Revit concluir. Se houver um comando ativo, finalize-o ou pressione Esc.";
             CaptureRequested.Invoke(settings);
@@ -647,8 +667,8 @@ internal sealed partial class PrintWindow : Window
         if (!IsVisible) return;
         SetBusy(false);
         if (_original is not null) RefreshPreview();
-        _status.Text = "Nao foi possivel capturar: " + message +
-            (_original is not null ? " A previa mantida pertence a captura anterior." : "");
+        _status.Text = "Não foi possível capturar: " + message +
+            (_original is not null ? " A prévia mantida pertence a captura anterior." : "");
     }
 
     private void RefreshPreview()
@@ -669,13 +689,13 @@ internal sealed partial class PrintWindow : Window
             _status.Text = _comparison.SelectedIndex == 1 && _rendered is not null
                 ? $"Renderizado: {_rendered.PixelWidth} x {_rendered.PixelHeight} px. Use Salvar render PNG para salvar o resultado da IA."
                 : _reference is not null
-                    ? $"Original enviado a IA: {_reference.PixelWidth} x {_reference.PixelHeight} px. Use Salvar referencia enviada a IA para comparar os arquivos."
+                    ? $"Original enviado a IA: {_reference.PixelWidth} x {_reference.PixelHeight} px. Use Salvar referência enviada à IA para comparar os arquivos."
                     : $"Original: {settings.Width} x {settings.Height} px ({mode}). Vista capturada: {_viewName}. Use Salvar captura PNG para salvar a captura.";
         }
         catch (Exception exception)
         {
             _save.IsEnabled = false; _generate.IsEnabled = false;
-            _status.Text = "Nao foi possivel atualizar a previa: " + exception.Message;
+            _status.Text = "Não foi possível atualizar a prévia: " + exception.Message;
         }
     }
 
@@ -683,13 +703,13 @@ internal sealed partial class PrintWindow : Window
     {
         InvalidateRender();
         string profile = _profile.SelectedIndex == 1
-            ? "Noite: arquitetura legivel, luzes existentes e reflexos plausiveis."
-            : "Dia: luz natural, materiais preservados e sombras plausiveis.";
+            ? "Noite: arquitetura legível, luzes existentes e reflexos plausíveis."
+            : "Dia: luz natural, materiais preservados e sombras plausíveis.";
         string fidelity = _fidelity.SelectedIndex switch
         {
-            0 => "Criativo: permite ambientacao conceitual moderada sem alterar a arquitetura.",
-            1 => "Controlado: preserva camera e arquitetura; permite ajustes moderados no contexto existente.",
-            _ => "Maxima: solicita preservar camera, fundo, entorno e elementos existentes. Materiais incertos mantem sua aparencia. Confira o resultado; a IA pode descumprir as instrucoes."
+            0 => "Criativo: permite ambientação conceitual moderada sem alterar a arquitetura.",
+            1 => "Controlado: preserva câmera e arquitetura; permite ajustes moderados no contexto existente.",
+            _ => "Máxima: solicita preservar câmera, fundo, entorno e elementos existentes. Materiais incertos mantêm sua aparência. Confira o resultado; a IA pode descumprir as instruções."
         };
         _renderNote.Text = profile + "\n\n" + fidelity;
     }
@@ -699,9 +719,9 @@ internal sealed partial class PrintWindow : Window
         _rendered = null; _renderPng = null; _reference = null; _referencePng = null;
         _lastRenderCapture = null; _lastRenderSettings = null; _lastRenderQuality = null;
         _lastRenderWidth = 0; _lastRenderHeight = 0; _currentRenderSavedToHistory = false;
-        _saveToHistory.Content = "Salvar no historico";
+        _saveToHistory.Content = "Salvar no histórico";
         _saveRender.IsEnabled = false; _saveReference.IsEnabled = false; _saveToHistory.IsEnabled = false;
-        _renderInfo.Text = "Gere novamente apos alterar enquadramento, perfil ou fidelidade.";
+        _renderInfo.Text = "Gere novamente após alterar enquadramento, perfil ou fidelidade.";
         _comparison.SelectedIndex = 0;
     }
 
@@ -715,7 +735,7 @@ internal sealed partial class PrintWindow : Window
             var size = OpenAiImageProvider.OutputSize(capture.Width, capture.Height);
             string key = _apiKey.Password.Trim();
             if (string.IsNullOrWhiteSpace(key))
-                throw new ArgumentException("Insira sua chave API OpenAI no campo protegido. Nao envie a chave pelo chat.");
+                throw new ArgumentException("Insira sua chave API OpenAI no campo protegido. Não envie a chave pelo chat.");
             var settings = new RenderSettings(
                 _profile.SelectedIndex == 1 ? RenderProfile.BumpNight : RenderProfile.BumpDay,
                 _fidelity.SelectedIndex switch { 0 => FidelityMode.Creative, 1 => FidelityMode.Controlled, _ => FidelityMode.Maximum });
@@ -731,7 +751,7 @@ internal sealed partial class PrintWindow : Window
             cancellation = new CancellationTokenSource();
             _renderCancellation = cancellation;
             SetBusy(true); _cancel.IsEnabled = true;
-            _status.Text = $"Gerando render {size.Width} x {size.Height} px. Uma solicitacao paga enviada para a API; aguarde.";
+            _status.Text = $"Gerando render {size.Width} x {size.Height} px. Uma solicitação paga enviada para a API; aguarde.";
             // HttpClient e provedor nao acessam objetos da API do Revit.
             using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
@@ -739,27 +759,27 @@ internal sealed partial class PrintWindow : Window
             ImageEditResult result;
             try { result = await new OpenAiImageProvider(http).EditAsync(request, key, timeout.Token); }
             catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
-            { throw new ImageProviderException("Tempo de espera esgotado. A API pode concluir e cobrar a solicitacao. Confira o uso antes de tentar novamente."); }
+            { throw new ImageProviderException("Tempo de espera esgotado. A API pode concluir e cobrar a solicitação. Confira o uso antes de tentar novamente."); }
             if (_closed || cancellation.IsCancellationRequested) return;
             using var imageBytes = new MemoryStream(result.Png);
             var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
             image.StreamSource = imageBytes; image.EndInit(); image.Freeze();
             if (image.PixelWidth != result.Width || image.PixelHeight != result.Height)
-                throw new ImageProviderException("Nao foi possivel validar as dimensoes do render.");
+                throw new ImageProviderException("Não foi possível validar as dimensões do render.");
             _rendered = image; _renderPng = result.Png; _reference = reference; _referencePng = request.Png;
             _lastRenderCapture = capture; _lastRenderSettings = settings; _lastRenderQuality = quality;
             _lastRenderWidth = result.Width; _lastRenderHeight = result.Height; _currentRenderSavedToHistory = false;
-            _saveToHistory.Content = "Salvar no historico";
-            _renderInfo.Text = $"Render: {result.Width} x {result.Height} px | {settings.Profile} | {PromptBuilder.FidelityLabel(settings.Fidelity)} | qualidade {quality}. Salvamento na resolucao nativa, sem ampliacao.";
+            _saveToHistory.Content = "Salvar no histórico";
+            _renderInfo.Text = $"Render: {result.Width} x {result.Height} px | {settings.Profile} | {PromptBuilder.FidelityLabel(settings.Fidelity)} | qualidade {quality}. Salvamento na resolução nativa, sem ampliação.";
             SetBusy(false); _comparison.SelectedIndex = 1; RefreshPreview();
-            _status.Text = "Render recebido. Ele nao foi salvo automaticamente. Se quiser guardar esta geracao, clique em Salvar no historico.";
+            _status.Text = "Render recebido. Ele não foi salvo automaticamente. Se quiser guardar esta geração, clique em Salvar no histórico.";
         }
         catch (OperationCanceledException)
-        { if (!_closed) _status.Text = "Espera cancelada. A captura foi preservada. A API pode cobrar a solicitacao ja recebida."; }
+        { if (!_closed) _status.Text = "Espera cancelada. A captura foi preservada. A API pode cobrar a solicitação já recebida."; }
         catch (ImageProviderException exception) { if (!_closed) _status.Text = exception.Message; }
         catch (ArgumentException exception) { if (!_closed) _status.Text = exception.Message; }
-        catch (HttpRequestException) { if (!_closed) _status.Text = "Falha de conexao. Nenhuma repeticao automatica foi enviada; confira o uso da API antes de tentar novamente."; }
-        catch (Exception) { if (!_closed) _status.Text = "Nao foi possivel preparar ou ler o render. A captura original foi preservada."; }
+        catch (HttpRequestException) { if (!_closed) _status.Text = "Falha de conexão. Nenhuma repetição automática foi enviada; confira o uso da API antes de tentar novamente."; }
+        catch (Exception) { if (!_closed) _status.Text = "Não foi possível preparar ou ler o render. A captura original foi preservada."; }
         finally
         {
             if (!_closed)
@@ -780,14 +800,14 @@ internal sealed partial class PrintWindow : Window
             SaveGenerationToHistory(_lastRenderCapture, _lastRenderSettings, _lastRenderQuality,
                 _lastRenderWidth, _lastRenderHeight, _referencePng, _renderPng);
             _currentRenderSavedToHistory = true;
-            _saveToHistory.Content = "Salvo no historico";
+            _saveToHistory.Content = "Salvo no histórico";
             _saveToHistory.IsEnabled = false;
-            _status.Text = "Geracao salva no historico local com referencia, render e configuracoes.";
+            _status.Text = "Geração salva no histórico local com referência, render e configurações.";
         }
         catch (Exception exception)
         {
-            PluginLog.Write("Falha ao salvar geracao no historico local.", exception);
-            _status.Text = "Nao foi possivel salvar no historico. O render continua disponivel no painel; voce pode tentar novamente ou usar os botoes de salvamento manual.";
+            PluginLog.Write("Falha ao salvar geração no histórico local.", exception);
+            _status.Text = "Não foi possível salvar no histórico. O render continua disponível no painel; você pode tentar novamente ou usar os botões de salvamento manual.";
             _saveToHistory.IsEnabled = true;
         }
     }
@@ -821,7 +841,7 @@ internal sealed partial class PrintWindow : Window
             var jsonOptions = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             File.WriteAllText(Path.Combine(pending, metadataFile), JsonSerializer.Serialize(metadata, jsonOptions));
             if (!File.Exists(Path.Combine(pending, referenceFile)) || !File.Exists(Path.Combine(pending, renderFile)) || !File.Exists(Path.Combine(pending, metadataFile)))
-                throw new IOException("Os arquivos do historico nao foram gravados integralmente.");
+                throw new IOException("Os arquivos do histórico não foram gravados integralmente.");
             Directory.Move(pending, destination);
         }
         catch
@@ -863,7 +883,7 @@ internal sealed partial class PrintWindow : Window
             Directory.CreateDirectory(HistoryRoot);
             Process.Start(new ProcessStartInfo { FileName = HistoryRoot, UseShellExecute = true });
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel abrir a pasta do historico: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível abrir a pasta do histórico: " + exception.Message; }
     }
 
     private static void ShowHistoryImage(Window owner, BitmapSource source, string title)
@@ -884,10 +904,11 @@ internal sealed partial class PrintWindow : Window
         };
         var zoom = new Slider { Minimum = 0.05, Maximum = 4, Value = 1, Width = 220 };
         var value = new TextBlock { Text = "100%", Margin = new Thickness(10, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
-        var fit = new Button { Content = "Encaixar", Padding = new Thickness(10, 5, 10, 5) };
-        var actual = new Button { Content = "100%", Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(10, 5, 10, 5) };
+        var fit = CreateCompactButton("Encaixar");
+        var actual = CreateCompactButton("100%");
+        actual.Margin = new Thickness(8, 0, 0, 0);
         var controls = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10) };
-        controls.Children.Add(new TextBlock { Text = "Ampliacao", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
+        controls.Children.Add(new TextBlock { Text = "Ampliação", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
         controls.Children.Add(zoom); controls.Children.Add(value); controls.Children.Add(fit); controls.Children.Add(actual);
         var root = new DockPanel();
         DockPanel.SetDock(controls, Dock.Top); root.Children.Add(controls); root.Children.Add(scroll);
@@ -897,6 +918,7 @@ internal sealed partial class PrintWindow : Window
             MinWidth = 600, MinHeight = 400, Content = root,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
+        ApplyWindowTheme(dialog);
         void FitImage()
         {
             double width = Math.Max(1, scroll.ViewportWidth > 0 ? scroll.ViewportWidth : scroll.ActualWidth - 20);
@@ -924,15 +946,16 @@ internal sealed partial class PrintWindow : Window
             foreach (HistoryItem item in items) list.Items.Add(item);
             var referenceImage = new Image { Stretch = Stretch.Uniform };
             var renderImage = new Image { Stretch = Stretch.Uniform };
-            var enlargeReference = new Button { Content = "Ampliar referencia", Height = 32, IsEnabled = false };
-            var enlargeRender = new Button { Content = "Ampliar render", Height = 32, IsEnabled = false };
+            var enlargeReference = CreateCompactButton("Ampliar referência");
+            var enlargeRender = CreateCompactButton("Ampliar render");
+            enlargeReference.IsEnabled = false; enlargeRender.IsEnabled = false;
             var details = new TextBox
             {
                 IsReadOnly = true, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Height = 160,
-                FontFamily = new FontFamily("Consolas"), FontSize = 12, Margin = new Thickness(0, 8, 0, 8)
+                FontSize = 13, Margin = new Thickness(0, 8, 0, 8), VerticalContentAlignment = VerticalAlignment.Top
             };
-            var openSelected = new Button { Content = "Abrir pasta desta geracao", Height = 36, IsEnabled = false };
+            var openSelected = new Button { Content = "Abrir pasta desta geração", Height = 36, IsEnabled = false };
             var comparison = new Grid();
             comparison.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             comparison.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
@@ -943,19 +966,15 @@ internal sealed partial class PrintWindow : Window
                 var heading = Text(title, 16, true);
                 DockPanel.SetDock(heading, Dock.Top); pane.Children.Add(heading);
                 DockPanel.SetDock(enlarge, Dock.Bottom); pane.Children.Add(enlarge);
-                pane.Children.Add(new Border
-                {
-                    Background = Brushes.White, BorderBrush = Brushes.LightGray,
-                    BorderThickness = new Thickness(1), Padding = new Thickness(6), Child = image
-                });
+                pane.Children.Add(CreateCard(image));
                 return pane;
             }
-            var referencePane = CreatePane("Referencia enviada a IA", referenceImage, enlargeReference);
+            var referencePane = CreatePane("Referência enviada à IA", referenceImage, enlargeReference);
             var renderPane = CreatePane("Render gerado", renderImage, enlargeRender);
             comparison.Children.Add(referencePane);
             Grid.SetColumn(renderPane, 2); comparison.Children.Add(renderPane);
             var right = new DockPanel();
-            var note = Text("Comparacao lado a lado: mesmo enquadramento e escala visual. Consultar o historico nao altera a captura atual.", 12);
+            var note = Text("Comparação lado a lado: mesmo enquadramento e escala visual. Consultar o histórico não altera a captura atual.", 12);
             DockPanel.SetDock(note, Dock.Top); right.Children.Add(note);
             DockPanel.SetDock(openSelected, Dock.Bottom); right.Children.Add(openSelected);
             DockPanel.SetDock(details, Dock.Bottom); right.Children.Add(details);
@@ -966,10 +985,28 @@ internal sealed partial class PrintWindow : Window
             grid.Children.Add(list); Grid.SetColumn(right, 1); grid.Children.Add(right);
             var dialog = new Window
             {
-                Title = "Arqyzeng BIM - Historico | Comparacao v7.5.2", Owner = this,
+                Title = "Arqyzeng BIM — Histórico", Owner = this,
                 Width = 1240, Height = 800, MinWidth = 940, MinHeight = 620,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = grid
             };
+
+            ApplyWindowTheme(dialog);
+            var itemText = new FrameworkElementFactory(typeof(TextBlock));
+            itemText.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding());
+            itemText.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+            itemText.SetValue(TextBlock.FontSizeProperty, 13d);
+            list.ItemTemplate = new DataTemplate { VisualTree = itemText };
+            ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
+            if (items.Count == 0)
+            {
+                list.Visibility = Visibility.Collapsed;
+                right.Visibility = Visibility.Collapsed;
+                var empty = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24) };
+                empty.Children.Add(CreateSectionTitle("Nenhuma geração salva no histórico."));
+                empty.Children.Add(Text("Suas gerações aparecem aqui ao usar Salvar no histórico.", 13));
+                var emptyCard = CreateCard(empty);
+                Grid.SetColumnSpan(emptyCard, 2); grid.Children.Add(emptyCard);
+            }
 
             void RefreshHistoryPreview()
             {
@@ -978,7 +1015,7 @@ internal sealed partial class PrintWindow : Window
                 openSelected.IsEnabled = false;
                 if (list.SelectedItem is not HistoryItem selected)
                 {
-                    details.Text = items.Count == 0 ? "Nenhuma geracao salva no historico." : "Selecione uma geracao.";
+                    details.Text = items.Count == 0 ? "Nenhuma geração salva no histórico." : "Selecione uma geração.";
                     return;
                 }
                 openSelected.IsEnabled = true;
@@ -988,7 +1025,7 @@ internal sealed partial class PrintWindow : Window
                     BitmapSource reference = ImagePipeline.Load(Path.Combine(selected.Folder, selected.Metadata.ReferenceFile));
                     BitmapSource render = ImagePipeline.Load(Path.Combine(selected.Folder, selected.Metadata.RenderFile));
                     if (reference.PixelWidth != render.PixelWidth || reference.PixelHeight != render.PixelHeight)
-                        throw new InvalidOperationException("Referencia e render possuem dimensoes diferentes. Consulte os arquivos na pasta desta geracao.");
+                        throw new InvalidOperationException("Referência e render possuem dimensões diferentes. Consulte os arquivos na pasta desta geração.");
                     string materials = selected.Metadata.Materials.Length == 0
                         ? "Nenhum material confirmado manualmente."
                         : string.Join(Environment.NewLine, selected.Metadata.Materials.Select(m => $"- {m.Name}: {m.Description}"));
@@ -998,7 +1035,7 @@ internal sealed partial class PrintWindow : Window
                         $"Perfil: {selected.Metadata.Profile}{Environment.NewLine}" +
                         $"Fidelidade: {selected.Metadata.Fidelity}{Environment.NewLine}" +
                         $"Qualidade: {selected.Metadata.Quality}{Environment.NewLine}" +
-                        $"Resolucao IA: {selected.Metadata.Width} x {selected.Metadata.Height}{Environment.NewLine}" +
+                        $"Resolução IA: {selected.Metadata.Width} x {selected.Metadata.Height}{Environment.NewLine}" +
                         $"Captura: {selected.Metadata.Capture.Width} x {selected.Metadata.Capture.Height} | {selected.Metadata.Capture.FrameMode} | zoom {selected.Metadata.Capture.Zoom:F2}x{Environment.NewLine}{Environment.NewLine}" +
                         "Materiais confirmados:" + Environment.NewLine + materials;
                     referenceImage.Source = reference; renderImage.Source = render;
@@ -1006,7 +1043,7 @@ internal sealed partial class PrintWindow : Window
                 }
                 catch (Exception exception)
                 {
-                    details.Text = "Nao foi possivel visualizar esta geracao: " + exception.Message +
+                    details.Text = "Não foi possível visualizar esta geração: " + exception.Message +
                         Environment.NewLine + "Selecione outra entrada ou abra a pasta para conferir os arquivos.";
                 }
             }
@@ -1015,7 +1052,7 @@ internal sealed partial class PrintWindow : Window
             enlargeReference.Click += (_, _) =>
             {
                 if (referenceImage.Source is BitmapSource source)
-                    ShowHistoryImage(dialog, source, "Arqyzeng BIM - Referencia enviada a IA");
+                    ShowHistoryImage(dialog, source, "Arqyzeng BIM - Referência enviada à IA");
             };
             enlargeRender.Click += (_, _) =>
             {
@@ -1026,12 +1063,12 @@ internal sealed partial class PrintWindow : Window
             {
                 if (list.SelectedItem is not HistoryItem selected) return;
                 try { Process.Start(new ProcessStartInfo { FileName = selected.Folder, UseShellExecute = true }); }
-                catch (Exception exception) { details.Text = "Nao foi possivel abrir a pasta: " + exception.Message; }
+                catch (Exception exception) { details.Text = "Não foi possível abrir a pasta: " + exception.Message; }
             };
             if (items.Count > 0) list.SelectedIndex = 0; else RefreshHistoryPreview();
             dialog.ShowDialog();
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel abrir o historico: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível abrir o histórico: " + exception.Message; }
     }
 
     private void SaveRender()
@@ -1051,7 +1088,7 @@ internal sealed partial class PrintWindow : Window
             File.WriteAllBytes(dialog.FileName, _renderPng);
             _status.Text = $"Render salvo em {_rendered.PixelWidth} x {_rendered.PixelHeight} px: {dialog.FileName}";
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel salvar o render: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível salvar o render: " + exception.Message; }
     }
 
     private void SaveReference()
@@ -1061,7 +1098,7 @@ internal sealed partial class PrintWindow : Window
         {
             var dialog = new SaveFileDialog
             {
-                Title = "Salvar referencia enviada a IA", Filter = "Imagem PNG (*.png)|*.png",
+                Title = "Salvar referência enviada à IA", Filter = "Imagem PNG (*.png)|*.png",
                 DefaultExt = ".png", AddExtension = true, OverwritePrompt = true,
                 FileName = $"Arqyzeng_ReferenciaIA_{_reference.PixelWidth}x{_reference.PixelHeight}_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png"
             };
@@ -1069,9 +1106,9 @@ internal sealed partial class PrintWindow : Window
             if (_originalPath is not null && string.Equals(Path.GetFullPath(_originalPath), Path.GetFullPath(dialog.FileName), StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Escolha outro nome para preservar a captura original.");
             File.WriteAllBytes(dialog.FileName, _referencePng);
-            _status.Text = "Referencia enviada a IA salva. Compare este arquivo com o render na mesma resolucao.";
+            _status.Text = "Referência enviada à IA salva. Compare este arquivo com o render na mesma resolução.";
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel salvar a referencia: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível salvar a referência: " + exception.Message; }
     }
 
     private void ShowRenderPrompt()
@@ -1087,15 +1124,15 @@ internal sealed partial class PrintWindow : Window
             string rules = Path.Combine(Path.GetDirectoryName(typeof(PromptBuilder).Assembly.Location)!, "data");
             var size = OpenAiImageProvider.OutputSize(capture.Width, capture.Height);
             string prompt = PromptBuilder.BuildForImageEdit(settings, new RenderScene(_viewName, size.Width, size.Height, _bim, CurrentMaterialConfirmations()), rules);
-            ShowText("Prompt de render", $"Instrucoes para a referencia que sera enviada em {size.Width} x {size.Height} px. Visualizar este prompt nao envia uma solicitacao.", prompt);
+            ShowText("Prompt de render", $"Instruções para a referência que será enviada em {size.Width} x {size.Height} px. Visualizar este prompt não envia uma solicitação.", prompt);
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel gerar o prompt: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível gerar o prompt: " + exception.Message; }
     }
 
     private void ShowBimContext()
     {
         if (_busy || _original is null) return;
-        ShowText("Dados BIM da captura", "Levantamento de candidatos da vista no instante da captura. Capture novamente apos alterar o modelo. Nao corresponde a uma selecao por pixel.", BimContextFormatter.Format(_bim));
+        ShowText("Dados BIM da captura", "Levantamento de candidatos da vista no instante da captura. Capture novamente após alterar o modelo. Não corresponde a uma seleção por pixel.", BimContextFormatter.Format(_bim));
     }
 
     private MaterialConfirmation[] CurrentMaterialConfirmations()
@@ -1129,25 +1166,27 @@ internal sealed partial class PrintWindow : Window
             var content = new StackPanel();
             content.Children.Add(Text(material.Name, 14, true));
             string categories = material.UsesByCategory.Length == 0 ? "sem categoria associada retornada" : string.Join(", ", material.UsesByCategory.Select(c => c.Name));
-            content.Children.Add(Text("Classe: " + (string.IsNullOrWhiteSpace(material.MaterialClass) ? "nao informada" : material.MaterialClass) + " | Categorias: " + categories, 12));
-            content.Children.Add(Text("Descricao conhecida (deixe em branco se incerto):", 12));
+            content.Children.Add(Text("Classe: " + (string.IsNullOrWhiteSpace(material.MaterialClass) ? "não informada" : material.MaterialClass) + " | Categorias: " + categories, 12));
+            content.Children.Add(Text("Descrição conhecida (deixe em branco se incerto):", 12));
             var editor = new TextBox { Text = _materialConfirmations.TryGetValue(key, out string? value) ? value : "", MinHeight = 30, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true };
             editor.TextChanged += (_, _) => InvalidateRender();
             editors[key] = editor; content.Children.Add(editor); card.Child = content; rows.Children.Add(card);
         }
-        var save = new Button { Content = "Aplicar confirmacoes", Height = 38, Margin = new Thickness(0, 8, 0, 0) };
+        var save = new Button { Content = "Aplicar confirmações", Height = 38, Margin = new Thickness(0, 8, 0, 0) };
         var panel = new DockPanel { Margin = new Thickness(16) };
-        var header = Text("Descreva somente materiais que voce reconhece com seguranca. Ex.: telha metalica cinza, vidro incolor, concreto aparente. Campos vazios permanecem incertos.", 13);
+        var header = Text("Descreva somente materiais que você reconhece com segurança. Ex.: telha metálica cinza, vidro incolor, concreto aparente. Campos vazios permanecem incertos.", 13);
         DockPanel.SetDock(header, Dock.Top); panel.Children.Add(header);
         DockPanel.SetDock(save, Dock.Bottom); panel.Children.Add(save);
         panel.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = rows, Margin = new Thickness(0, 10, 0, 10) });
         var dialog = new Window { Title = "Arqyzeng BIM - Confirmar materiais", Owner = this, Width = 760, Height = 650, MinWidth = 560, MinHeight = 400, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel };
+        ApplyWindowTheme(dialog);
+        ApplyPrimaryButtonStyle(save);
         save.Click += (_, _) =>
         {
             _materialConfirmations.Clear();
             foreach (var pair in editors) if (!string.IsNullOrWhiteSpace(pair.Value.Text)) _materialConfirmations[pair.Key] = pair.Value.Text.Trim();
             InvalidateRender();
-            _status.Text = _materialConfirmations.Count == 0 ? "Confirmacoes de materiais limpas. Materiais incertos permanecem sem descricao manual." : $"{_materialConfirmations.Count} material(is) confirmado(s). Gere novamente para usar as novas informacoes.";
+            _status.Text = _materialConfirmations.Count == 0 ? "Confirmações de materiais limpas. Materiais incertos permanecem sem descrição manual." : $"{_materialConfirmations.Count} material(is) confirmado(s). Gere novamente para usar as novas informações.";
             dialog.DialogResult = true;
         };
         dialog.ShowDialog();
@@ -1155,21 +1194,44 @@ internal sealed partial class PrintWindow : Window
 
     private void ShowText(string title, string description, string text)
     {
-        var panel = new DockPanel { Margin = new Thickness(16) };
+        var panel = new DockPanel { Margin = new Thickness(24) };
+        var heading = CreateSectionTitle(title);
+        heading.FontSize = 24;
+        DockPanel.SetDock(heading, Dock.Top); panel.Children.Add(heading);
         var info = Text(description, 13);
+        info.Margin = new Thickness(0, 0, 0, 16);
         DockPanel.SetDock(info, Dock.Top); panel.Children.Add(info);
+        var dialog = new Window
+        {
+            Title = "Arqyzeng BIM — " + title, Owner = this,
+            Width = 800, Height = 650, MinWidth = 500, MinHeight = 350,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel
+        };
+        ApplyWindowTheme(dialog);
+        var actions = new DockPanel { Margin = new Thickness(0, 16, 0, 0) };
+        var close = new Button { Content = "Fechar", Width = 100, Height = 38, IsCancel = true };
+        ApplyPrimaryButtonStyle(close);
+        close.Click += (_, _) => dialog.Close();
+        DockPanel.SetDock(close, Dock.Right); actions.Children.Add(close);
+        var copy = new Button { Content = "Copiar texto", Width = 120, Height = 38, Margin = new Thickness(0, 0, 12, 0) };
+        DockPanel.SetDock(copy, Dock.Left); actions.Children.Add(copy);
+        var feedback = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        actions.Children.Add(feedback);
+        copy.Click += (_, _) =>
+        {
+            try { Clipboard.SetText(text); feedback.Text = "Texto copiado."; }
+            catch (System.Runtime.InteropServices.ExternalException)
+            { feedback.Text = "Não foi possível copiar. Selecione o texto e use Ctrl+C."; }
+        };
+        DockPanel.SetDock(actions, Dock.Bottom); panel.Children.Add(actions);
         panel.Children.Add(new TextBox
         {
             Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            FontFamily = new FontFamily("Consolas"), FontSize = 13, Padding = new Thickness(12)
+            VerticalContentAlignment = VerticalAlignment.Top,
+            FontSize = 14, Padding = new Thickness(16)
         });
-        new Window
-        {
-            Title = "Arqyzeng BIM - " + title, Owner = this,
-            Width = 800, Height = 650, MinWidth = 500, MinHeight = 350,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel
-        }.ShowDialog();
+        dialog.ShowDialog();
     }
 
     private void SaveCapture()
@@ -1197,7 +1259,7 @@ internal sealed partial class PrintWindow : Window
             File.Copy(temporary, dialog.FileName, true);
             _status.Text = $"PNG salvo: {settings.Width} x {settings.Height} px. Arquivo: {dialog.FileName}";
         }
-        catch (Exception exception) { _status.Text = "Nao foi possivel salvar: " + exception.Message; }
+        catch (Exception exception) { _status.Text = "Não foi possível salvar: " + exception.Message; }
         finally
         {
             if (temporary is not null)

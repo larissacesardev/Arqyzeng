@@ -85,12 +85,12 @@ internal sealed class ViewportGuide
         var panel = new StackPanel { Margin = new Thickness(12) };
         panel.Children.Add(new TextBlock
         {
-            Text = $"Area da captura: {_settings.Width} x {_settings.Height} px",
+            Text = $"Área da captura: {_settings.Width} x {_settings.Height} px",
             FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(new TextBlock
         {
-            Text = "Ajuste o modelo diretamente no Revit. A area clara entra no PNG; a area cinza fica fora. Arraste este painel se ele cobrir a vista.",
+            Text = "Ajuste o modelo diretamente no Revit. A área clara entra no PNG; a área cinza fica fora. Arraste este painel se ele cobrir a vista.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 8)
         });
         var capture = new Button { Content = "Capturar este enquadramento", Height = 34 };
@@ -149,7 +149,7 @@ internal sealed class ViewportGuide
     private void UpdateRectangle()
     {
         var uiView = _application.ActiveUIDocument.GetOpenUIViews().FirstOrDefault(v => v.ViewId.Equals(_viewId));
-        if (uiView is null) throw new InvalidOperationException("A vista 3D nao esta aberta na tela.");
+        if (uiView is null) throw new InvalidOperationException("A vista 3D não está aberta na tela.");
         using var rectangle = uiView.GetWindowRectangle();
         int width = rectangle.Right - rectangle.Left;
         int height = rectangle.Bottom - rectangle.Top;
@@ -157,7 +157,7 @@ internal sealed class ViewportGuide
         IntPtr handle = new WindowInteropHelper(_overlay).Handle;
         // Move primeiro para o monitor da vista e consulta a escala WPF desse monitor.
         if (!NativeGuide.SetWindowPos(handle, new IntPtr(-1), rectangle.Left, rectangle.Top, width, height, 0x10))
-            throw new InvalidOperationException("Nao foi possivel posicionar a moldura na vista.");
+            throw new InvalidOperationException("Não foi possível posicionar a moldura na vista.");
         Matrix fromDevice = PresentationSource.FromVisual(_overlay)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
         Vector logicalSize = fromDevice.Transform(new Vector(width, height));
         _overlay.Width = logicalSize.X;
@@ -166,7 +166,7 @@ internal sealed class ViewportGuide
         _overlay.UpdateLayout();
         // Sincroniza o HWND fisico com o tamanho logico, mantendo a camada acima da vista sem dar foco.
         if (!NativeGuide.SetWindowPos(handle, new IntPtr(-1), rectangle.Left, rectangle.Top, width, height, 0x10))
-            throw new InvalidOperationException("Nao foi possivel sincronizar a moldura na vista.");
+            throw new InvalidOperationException("Não foi possível sincronizar a moldura na vista.");
         if (!_hasRectangle)
         {
             var transform = PresentationSource.FromVisual(_overlay)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;

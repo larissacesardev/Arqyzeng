@@ -54,7 +54,7 @@ internal sealed class PanoramaViewerWindow : Window
             toolbar.Children.Add(look);
         }
         var fullscreen = Button("Tela cheia (F11)"); fullscreen.Click += (_, _) => ToggleFullscreen(); toolbar.Children.Add(fullscreen);
-        toolbar.Children.Add(new TextBlock { Text = "Campo de visao", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) });
+        toolbar.Children.Add(new TextBlock { Text = "Campo de visão", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) });
         toolbar.Children.Add(_fov);
         DockPanel.SetDock(toolbar, Dock.Top); root.Children.Add(toolbar);
         DockPanel.SetDock(_info, Dock.Bottom); root.Children.Add(_info);
@@ -89,7 +89,7 @@ internal sealed class PanoramaViewerWindow : Window
     private static Button Button(string text) => new() { Content = text, Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(4) };
     private void LoadPanorama(string path)
     {
-        if (!File.Exists(path)) throw new InvalidOperationException("PNG nao encontrado.");
+        if (!File.Exists(path)) throw new InvalidOperationException("PNG não encontrado.");
         LoadPanorama(ImagePipeline.Load(path), System.IO.Path.GetFileName(path));
     }
     private void LoadPanorama(BitmapSource image, string label)
@@ -117,13 +117,13 @@ internal sealed class PanoramaViewerWindow : Window
         group.Freeze();
         // Trocar apenas depois de montar tudo: manter a imagem anterior se a abertura falhar.
         _viewport.Children.Clear(); _viewport.Children.Add(new ModelVisual3D { Content = group });
-        _textureInfo = $"{tiles.Length} partes em resolucao nativa | WPF tier {RenderCapability.Tier >> 16}";
+        _textureInfo = $"{tiles.Length} partes em resolução nativa | WPF tier {RenderCapability.Tier >> 16}";
         _filename = label; _imageSize = $"{image.PixelWidth} x {image.PixelHeight}";
         _yaw = 0; _pitch = 0; _fov.Value = 75; UpdateCamera();
     }
     internal void LookAtLongitude(double yaw)
     {
-        if (!double.IsFinite(yaw)) throw new ArgumentException("Direcao invalida.");
+        if (!double.IsFinite(yaw)) throw new ArgumentException("Direção inválida.");
         _yaw = yaw; _pitch = 0; UpdateCamera();
     }
     private void OpenAnotherPanorama()
@@ -139,7 +139,7 @@ internal sealed class PanoramaViewerWindow : Window
         var look = PanoramaViewerMath.Direction(_yaw, _pitch);
         _camera.LookDirection = new Vector3D(look.X, look.Y, look.Z);
         _camera.FieldOfView = _fov.Value;
-        _info.Text = $"{_filename} | {_imageSize} px | {_textureInfo} | Direcao: {_yaw:F1} graus | Altura: {_pitch:F1} graus | FOV: {_fov.Value:F0} graus\nArraste para olhar ao redor. Roda do mouse: zoom. Setas: direcao. F11: tela cheia. Esc: sair da tela cheia.";
+        _info.Text = $"{_filename} | {_imageSize} px | {_textureInfo} | Direção: {_yaw:F1} graus | Altura: {_pitch:F1} graus | FOV: {_fov.Value:F0} graus\nArraste para olhar ao redor. Roda do mouse: zoom. Setas: direção. F11: tela cheia. Esc: sair da tela cheia.";
     }
     private void StopDrag() { _dragging = false; if (_interaction.IsMouseCaptured) _interaction.ReleaseMouseCapture(); }
     private void ToggleFullscreen()
