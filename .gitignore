@@ -485,3 +485,5 @@ $RECYCLE.BIN/
 
 /backups/
 /.artifacts/
+build-log.txt
+restore-log.txt
